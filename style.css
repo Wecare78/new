@@ -1,0 +1,1568 @@
+/* ============================================
+   GENERAL STYLES & VARIABLES
+   ============================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary-color: #6675ff;
+    --secondary-color: #35d6e8;
+    --success-color: #22c55e;
+    --info-color: #4d9cff;
+    --warning-color: #f5b942;
+    --danger-color: #ef5665;
+    --dark-bg: #070b14;
+    --card-bg: #101827;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(148, 163, 184, 0.18);
+    --shadow: 0 22px 60px rgba(0, 0, 0, 0.32);
+    --glass-bg: rgba(16, 24, 39, 0.72);
+    --glass-border: rgba(255, 255, 255, 0.09);
+    --card-blur: 18px;
+    --transition: 180ms ease;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+html {
+    min-width: 320px;
+    background: var(--dark-bg);
+}
+
+body {
+    font-family: var(--font-family);
+    min-height: 100dvh;
+    padding: 76px 16px 32px;
+    overflow-x: hidden;
+    color: var(--text-primary);
+    background:
+        radial-gradient(700px 460px at -10% -5%, rgba(53, 214, 232, 0.13), transparent 66%),
+        radial-gradient(680px 520px at 110% 88%, rgba(102, 117, 255, 0.12), transparent 67%),
+        linear-gradient(160deg, #070b14 0%, #0b1020 52%, #080d18 100%);
+}
+
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.18;
+    background-image: linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.014) 1px, transparent 1px);
+    background-size: 42px 42px;
+    -webkit-mask-image: linear-gradient(to bottom, black, transparent 88%);
+    mask-image: linear-gradient(to bottom, black, transparent 88%);
+}
+
+/* Banner */
+.banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(90deg, rgba(245, 185, 66, 0.94), rgba(239, 86, 101, 0.92));
+    color: white;
+    padding: 9px 16px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.11em;
+    z-index: 2000;
+    box-shadow: 0 6px 24px rgba(239, 86, 101, 0.18);
+    pointer-events: none;
+}
+
+.banner * {
+    pointer-events: auto;
+}
+
+.container {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0;
+}
+
+/* ============================================
+   WELCOME SECTION
+   ============================================ */
+
+.welcome-section {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px 10px;
+}
+
+.welcome-card {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    padding: 40px 24px;
+    border-radius: 20px;
+    box-shadow: var(--shadow);
+    animation: slideDown 0.6s ease-out;
+}
+
+.welcome-text {
+    font-size: 2.2rem;
+    font-weight: 800;
+    margin-bottom: 12px;
+    letter-spacing: 2px;
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.tagline {
+    font-size: 1.05rem;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+/* ============================================
+   TAB NAVIGATION
+   ============================================ */
+
+.tab-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    background: var(--card-bg);
+    padding: 10px;
+    border-radius: 15px;
+    border: 1px solid var(--border-color);
+}
+
+.tab-button {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    transition: var(--transition);
+}
+
+.tab-button:hover {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.tab-button.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* ============================================
+   FORM STYLES
+   ============================================ */
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.4s ease-in;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.form-card {
+    background: var(--card-bg);
+    padding: clamp(18px, 3vw, 28px);
+    border-radius: 18px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+}
+
+.form-card h3 {
+    margin-bottom: 25px;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.form-group {
+    margin-bottom: 17px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 7px;
+    font-weight: 600;
+    color: #d9e3f2;
+    font-size: 0.85rem;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    min-height: 46px;
+    padding: 11px 13px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 12px;
+    background: rgba(3, 8, 18, 0.48);
+    color: var(--text-primary);
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 3px rgba(53, 214, 232, 0.1), 0 0 22px rgba(53, 214, 232, 0.08);
+}
+
+.form-group input::placeholder {
+    color: #607089;
+}
+
+.form-group select {
+    cursor: pointer;
+}
+
+.form-group select option {
+    background: var(--card-bg);
+    color: var(--text-primary);
+}
+
+.form-group small {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.error-message {
+    color: var(--danger-color) !important;
+    font-weight: 500;
+}
+
+/* ============================================
+   BUTTONS & INTERACTIONS
+   ============================================ */
+
+.btn {
+    min-height: 44px;
+    padding: 12px 24px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition), background var(--transition);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    pointer-events: auto;
+    touch-action: manipulation;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn-primary {
+    background: linear-gradient(110deg, #5266e8, #28bfd4);
+    box-shadow: 0 10px 26px rgba(53, 183, 224, 0.18);
+    color: white;
+    width: 100%;
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(99, 102, 241, 0.4);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: var(--glass-border);
+    color: var(--text-primary);
+    padding: 10px 18px;
+    width: auto;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-success {
+    background: linear-gradient(110deg, #159957, #22c55e);
+    box-shadow: 0 10px 26px rgba(34, 197, 94, 0.16);
+    color: white;
+    width: 100%;
+}
+
+.btn-success:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(16, 185, 129, 0.4);
+}
+
+.btn-info {
+    background: linear-gradient(110deg, #2e70dc, #4d9cff);
+    color: white;
+    width: 100%;
+}
+
+.btn-logout {
+    color: #ffb7bd;
+    background: rgba(239, 86, 101, 0.1);
+    border: 1px solid rgba(239, 86, 101, 0.28);
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    width: auto;
+}
+
+.btn-logout:hover {
+    background: rgba(239, 86, 101, 0.25);
+}
+
+.btn-large {
+    padding: 15px 30px;
+    font-size: 1.1rem;
+}
+
+.btn-danger {
+    background: linear-gradient(110deg, #b9364c, #ef5665);
+    color: white;
+    width: 100%;
+}
+
+.btn-danger:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(239, 68, 68, 0.3);
+}
+
+/* ============================================
+   MESSAGES
+   ============================================ */
+
+.message {
+    margin-top: 15px;
+    padding: 12px 15px;
+    border-radius: 10px;
+    font-weight: 500;
+    text-align: center;
+    min-height: 20px;
+}
+
+.message.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success-color);
+    border: 1px solid var(--success-color);
+}
+
+.message.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+}
+
+.message.bank-removed {
+    background: rgba(16, 185, 129, 0.06);
+    color: var(--success-color);
+    border: 1px solid rgba(16, 185, 129, 0.18);
+}
+
+/* ============================================
+   DASHBOARD HEADER & LAYOUT
+   ============================================ */
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 28px;
+    padding: 14px 18px;
+    border-radius: 18px;
+    min-height: 70px;
+}
+
+.dashboard-header,
+.card,
+.form-card,
+.tab-container,
+.stat-card,
+.upgrade-panel .upgrade-card {
+    background: linear-gradient(145deg, rgba(17, 28, 44, 0.86), rgba(10, 17, 30, 0.76));
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,0.035);
+    -webkit-backdrop-filter: blur(var(--card-blur));
+    backdrop-filter: blur(var(--card-blur));
+}
+
+.site-title {
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header-left { flex: 1; }
+.header-right {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+}
+
+.welcome-row {
+    text-align: left;
+    margin: 0 4px 18px;
+}
+
+.welcome-row::before {
+    content: "ACCOUNT OVERVIEW";
+    display: block;
+    margin-bottom: 7px;
+    color: var(--secondary-color);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+}
+
+.welcome-user {
+    font-size: clamp(1.25rem, 4vw, 1.7rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.dashboard-section {
+    margin-bottom: 18px;
+    animation: fadeIn 0.5s ease-in;
+}
+
+.dashboard-section.hidden {
+    display: none;
+}
+
+.card {
+    padding: clamp(18px, 3vw, 28px);
+    border-radius: 18px;
+    margin-bottom: 20px;
+}
+
+.card h3 {
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: clamp(1.15rem, 3vw, 1.4rem);
+    letter-spacing: -0.02em;
+}
+
+.card h3::after, .form-card h3::after {
+    content: "";
+    display: block;
+    width: 32px;
+    height: 3px;
+    margin-top: 9px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--secondary-color), var(--primary-color));
+}
+
+.card h4 {
+    margin-bottom: 10px;
+    color: var(--text-primary);
+}
+
+/* ============================================
+   STAT CARDS
+   ============================================ */
+
+.stat-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.stat-card {
+    position: relative;
+    min-height: 108px;
+    padding: 17px;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.stat-card::after {
+    content: "";
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    right: -34px;
+    bottom: -42px;
+    border-radius: 50%;
+    background: rgba(53, 214, 232, 0.16);
+    filter: blur(12px);
+}
+
+.stat-card:nth-child(2)::after {
+    background: rgba(245, 185, 66, 0.16);
+}
+
+.stat-card:nth-child(3)::after {
+    background: rgba(102, 117, 255, 0.18);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+}
+
+.stat-label {
+    position: relative;
+    z-index: 1;
+    color: var(--text-secondary);
+    font-weight: 700;
+    margin-bottom: 6px;
+    font-size: 0.72rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    position: relative;
+    z-index: 1;
+    margin-top: 15px;
+    font-size: clamp(1.25rem, 3vw, 1.65rem);
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+/* ============================================
+   MAIN ACTION CARD & STEP INDICATOR
+   ============================================ */
+
+.main-action-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding-top: 25px;
+}
+
+.muted {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+    max-width: 510px;
+    line-height: 1.55;
+}
+
+.main-actions {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.step-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 4px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    padding: 4px 2px 12px;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 70px;
+}
+
+.step span {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #1a2639;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.step.step-active span {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    box-shadow: 0 0 20px rgba(53, 214, 232, 0.24);
+}
+
+.step p {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    max-width: 78px;
+    text-align: center;
+}
+
+.step-arrow {
+    color: var(--secondary-color);
+    font-size: 1.1rem;
+    opacity: 0.55;
+}
+
+/* ============================================
+   UPI & PAYMENT SECTIONS
+   ============================================ */
+
+.upi-section, .upgrade-upi-section, .bonus-demo-countdown, .side-panel, .balance-display, .receipt-panel {
+    background: rgba(3, 8, 18, 0.42);
+    border: 1px solid rgba(53, 214, 232, 0.2);
+    padding: 20px;
+    border-radius: 14px;
+    margin: 15px 0;
+}
+
+.upi-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+    margin: 15px 0 10px;
+}
+
+.upi-row {
+    margin-bottom: 14px;
+}
+
+.upi-display, .upgrade-upi-display {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 14px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+}
+
+.upiId, .upgrade-upi-id {
+    flex: 1;
+    color: var(--secondary-color);
+    font-weight: 600;
+    font-size: 1.05rem;
+    word-break: break-all;
+}
+
+.copyMessage {
+    text-align: center;
+    color: var(--success-color);
+    font-weight: 600;
+    min-height: 20px;
+}
+
+.copy-upi-btn {
+    flex-shrink: 0;
+}
+
+/* ============================================
+   RUNNING ACCOUNT STYLES
+   ============================================ */
+
+.running-card {
+    overflow: hidden;
+}
+
+.running-main {
+    display: flex;
+    gap: 16px;
+}
+
+.running-left {
+    flex: 2;
+    min-width: 0;
+}
+
+.running-right {
+    flex: 1;
+}
+
+.balance-display {
+    padding: 19px;
+    margin-bottom: 15px;
+}
+
+#liveBalance {
+    font-size: clamp(2rem, 7vw, 2.7rem) !important;
+    font-weight: 800;
+    color: #70e89b !important;
+    letter-spacing: -0.04em;
+}
+
+.transactions {
+    margin-top: 22px;
+}
+
+.transaction-feed {
+    max-height: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+    padding-right: 3px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(53, 214, 232, 0.35) transparent;
+}
+
+.transaction {
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: linear-gradient(90deg, rgba(34, 197, 94, 0.1), rgba(255, 255, 255, 0.035));
+    border: 1px solid rgba(34, 197, 94, 0.14);
+    border-left: 3px solid var(--success-color);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    animation: transactionIn 320ms ease both;
+}
+
+.side-panel {
+    padding: 20px 16px;
+    text-align: center;
+}
+
+#commissionAmount {
+    font-size: 2rem !important;
+    font-weight: 800;
+    color: var(--secondary-color) !important;
+    margin: 14px 0 20px !important;
+}
+
+/* ============================================
+   UPGRADE PANEL STYLES
+   ============================================ */
+
+.upgrade-panel {
+    margin-top: 12px;
+}
+
+.upgrade-panel .upgrade-card {
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.upgrade-panel h4 {
+    color: #ef4444;
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+}
+
+.upgrade-panel h4::before {
+    content: "";
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    background: #ef4444;
+    border-radius: 50%;
+    margin-right: 8px;
+    box-shadow: 0 2px 6px rgba(239,68,68,0.2);
+    flex-shrink: 0;
+}
+
+.upgrade-panel-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.upgrade-upi-section {
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.upgrade-upi-row + .upgrade-upi-row {
+    margin-top: 14px;
+}
+
+.upgrade-upi-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.upgrade-utr-group {
+    margin-bottom: 16px;
+}
+
+.upgrade-utr-label {
+    display: block;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.upgrade-utr-input {
+    width: 100%;
+    min-height: 46px;
+    padding: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    background: rgba(3, 8, 18, 0.48);
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.upgrade-utr-input:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 3px rgba(53, 214, 232, 0.1);
+}
+
+.upgrade-button-group {
+    display: flex;
+    gap: 10px;
+}
+
+.upgrade-button-group .btn {
+    flex: 1;
+    margin: 0;
+}
+
+.upgrade-copy-message {
+    text-align: center;
+    color: var(--success-color);
+    font-weight: 600;
+    font-size: 0.85rem;
+    min-height: 16px;
+    margin-top: 6px;
+}
+
+/* ============================================
+   UPI PREVIEW
+   ============================================ */
+
+#upiPreview {
+    max-width: 120px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+#upiPreview img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* ============================================
+   TRANSACTION HISTORY
+   ============================================ */
+
+.transaction-history {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+    padding-right: 3px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(53, 214, 232, 0.35) transparent;
+}
+
+.transaction-item {
+    min-width: 0;
+    padding: 13px 14px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid var(--success-color);
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.transaction-item span {
+    font-weight: 700;
+    color: #70e89b;
+}
+
+.transaction-item small {
+    color: var(--text-secondary);
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+/* ============================================
+   WITHDRAWAL / MESSAGES
+   ============================================ */
+
+.withdrawal-message {
+    margin: 15px 0;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+}
+
+.receipt-panel {
+    margin-top: 20px;
+    padding: 20px;
+}
+
+.receipt-panel h4 {
+    margin-bottom: 15px;
+}
+
+/* ============================================
+   BOTTOM ACTIONS
+   ============================================ */
+
+.bottom-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bottom-actions .btn {
+    max-width: 260px;
+    font-size: 0.8rem;
+}
+
+/* ============================================
+   TELEGRAM ICON
+   ============================================ */
+
+.telegram-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(53, 214, 232, 0.25);
+    background: rgba(53, 214, 232, 0.1);
+    color: var(--secondary-color);
+    text-decoration: none;
+    box-shadow: 0 8px 22px rgba(53, 214, 232, 0.12);
+    transition: var(--transition);
+}
+
+.telegram-icon:hover {
+    transform: translateY(-2px) scale(1.04);
+}
+
+.telegram-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* ============================================
+   BONUS & BACK NAV
+   ============================================ */
+
+.back-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 10px 16px;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.045);
+    color: var(--text-secondary);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(2, 6, 23, 0.25);
+    transition: var(--transition);
+}
+
+.back-nav-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.bonus-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(245, 185, 66, 0.5);
+    background: linear-gradient(135deg, rgba(245, 185, 66, 0.2), rgba(245, 145, 66, 0.08));
+    box-shadow: 0 8px 24px rgba(245, 185, 66, 0.13);
+    color: #fef3c7;
+    font-weight: 700;
+    position: relative;
+    cursor: pointer;
+    transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.bonus-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(245, 185, 66, 0.2);
+}
+
+.bonus-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ff6b6b;
+    animation: pulseBadge 1.2s infinite;
+}
+
+.bonus-icon {
+    font-size: 1rem;
+}
+
+.bonus-text {
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.bonus-page-card {
+    text-align: center;
+    padding: clamp(28px, 6vw, 52px) clamp(18px, 5vw, 42px);
+}
+
+.bonus-inline-message {
+    margin-top: 12px;
+    padding: 12px 15px;
+    border-radius: 10px;
+    font-weight: 500;
+    text-align: center;
+    min-height: 20px;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.bonus-inline-message.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success-color);
+    border: 1px solid var(--success-color);
+}
+
+.bonus-inline-message.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger-color);
+    border: 1px solid var(--danger-color);
+}
+
+.bonus-page-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--warning-color);
+    margin-bottom: 12px;
+    letter-spacing: 0.16em;
+}
+
+.bonus-page-subtitle {
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.bonus-amount {
+    font-size: clamp(3rem, 12vw, 4.4rem);
+    font-weight: 800;
+    color: #ffd36a;
+    margin: 18px 0 24px;
+    text-shadow: 0 0 32px rgba(245, 185, 66, 0.25);
+}
+
+.bonus-demo-countdown {
+    margin-top: 22px;
+    text-align: center;
+}
+
+.bonus-countdown-expiry {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 14px;
+    word-break: break-word;
+}
+
+.bonus-countdown-timer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 8px 0 10px;
+}
+
+.bonus-time-box {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 78px;
+    padding: 10px 8px;
+    background: rgba(245, 185, 66, 0.08);
+    border: 1px solid rgba(245, 185, 66, 0.25);
+    border-radius: 10px;
+    text-align: center;
+}
+
+.bonus-time-box strong {
+    font-size: 1.4rem;
+    color: #ffd36a;
+    line-height: 1.2;
+}
+
+.bonus-time-box small {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+
+.bonus-time-separator {
+    color: var(--text-secondary);
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+
+.bonus-countdown-note {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+
+.status-indicator {
+    transition: color 0.25s ease;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.status-dot.running {
+    background: #10b981;
+    transform: scale(1.05);
+    box-shadow: 0 0 0 4px rgba(34,197,94,0.1), 0 0 18px rgba(34,197,94,0.65);
+    animation: statusPulse 2s infinite;
+}
+
+.status-dot.stopped {
+    background: #ef4444;
+    transform: scale(1);
+    box-shadow: 0 0 0 4px rgba(239,86,101,0.08);
+}
+
+/* ==================================================
+   PAYMENT NOTIFICATION CARD (ANDROID TRUECALLER STYLE)
+   Glass-morphism, slide-down animation & responsive design
+   ================================================== */
+
+.payment-notification-container {
+    position: fixed;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 24px);
+    max-width: 440px;
+    z-index: 99999;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Glassmorphism Notification Card */
+.tc-notification-card,
+.payment-notification-card {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    /* Layered dark glass aesthetic matching dashboard */
+    background: linear-gradient(135deg, rgba(17, 27, 46, 0.94) 0%, rgba(9, 15, 29, 0.96) 100%);
+    border: 1px solid rgba(0, 135, 255, 0.32);
+    border-top: 1px solid rgba(82, 168, 255, 0.65);
+    border-radius: 18px;
+    padding: 14px 16px 16px;
+    
+    /* Diffuse glass shadows & inner edge lighting */
+    box-shadow:
+        0 24px 50px rgba(0, 0, 0, 0.65),
+        0 8px 24px rgba(0, 135, 255, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.4);
+    
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(24px) saturate(160%);
+    color: var(--text-primary);
+    pointer-events: auto;
+    cursor: default;
+    user-select: none;
+    overflow: hidden;
+
+    /* Initial state before entering */
+    transform: translateY(-130%);
+    opacity: 0;
+    will-change: transform, opacity;
+    transition: transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease, box-shadow 0.3s ease;
+}
+
+/* Subtle ambient radial light beam inside the card */
+.tc-notification-card::before,
+.payment-notification-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 20px;
+    right: 20px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 135, 255, 0.6), rgba(53, 214, 232, 0.8), transparent);
+    pointer-events: none;
+}
+
+/* Slide-down active visible state */
+.tc-notification-card.tc-notif-visible,
+.payment-notification-card.visible {
+    transform: translateY(0);
+    opacity: 1;
+    animation: notifSlideDown 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Slide-up exit state */
+.tc-notification-card.tc-notif-hiding,
+.payment-notification-card.hiding {
+    transform: translateY(-130%);
+    opacity: 0;
+    animation: notifSlideUp 0.38s cubic-bezier(0.7, 0, 0.84, 0) forwards;
+}
+
+/* Keyframes for slide-down with subtle spring settle */
+@keyframes notifSlideDown {
+    0% {
+        transform: translateY(-130%);
+        opacity: 0;
+    }
+    75% {
+        transform: translateY(3px);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes notifSlideUp {
+    0% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-130%);
+        opacity: 0;
+    }
+}
+
+/* Notification Header */
+.tc-notif-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tc-notif-app-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.tc-app-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    overflow: hidden;
+    flex-shrink: 0;
+    box-shadow: 0 2px 10px rgba(0, 135, 255, 0.45);
+}
+
+.tc-app-name {
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    color: #4da6ff;
+    text-transform: uppercase;
+}
+
+.tc-separator {
+    color: rgba(148, 163, 184, 0.6);
+    font-size: 0.75rem;
+}
+
+.tc-header-time {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.tc-close-btn {
+    width: 28px;
+    height: 28px;
+    min-height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.tc-close-btn:hover {
+    background: rgba(239, 68, 68, 0.25);
+    color: #ff9999;
+    transform: scale(1.08);
+}
+
+/* Notification Body */
+.tc-notif-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tc-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.tc-check-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #10b981;
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 800;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.45);
+    flex-shrink: 0;
+}
+
+.tc-title {
+    font-size: 0.94rem;
+    font-weight: 700;
+    color: #f8fafc;
+    letter-spacing: -0.01em;
+}
+
+.tc-amount {
+    font-size: 1.38rem;
+    font-weight: 800;
+    color: #4ade80;
+    letter-spacing: -0.02em;
+    margin: 3px 0 2px;
+    text-shadow: 0 2px 12px rgba(34, 197, 94, 0.3);
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-variant-numeric: tabular-nums;
+}
+
+.tc-account-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.tc-account-pill {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-family: monospace;
+    letter-spacing: 0.05em;
+    color: #e2e8f0;
+}
+
+.tc-footer-time {
+    margin-top: 4px;
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* Tactile pulse on new incoming transaction */
+@keyframes tcPulse {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.025); }
+    100% { transform: scale(1); }
+}
+
+.tc-notification-card.tc-pulse {
+    animation: tcPulse 0.3s ease-out;
+}
+
+/* ============================================
+   KEYFRAMES
+   ============================================ */
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes transactionIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes statusPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
+}
+
+@keyframes pulseBadge {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+    70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 820px) {
+    .stat-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .stat-card:last-child {
+        grid-column: 1 / -1;
+    }
+    .running-main {
+        flex-direction: column;
+    }
+    .step-indicator {
+        justify-content: flex-start;
+    }
+    .step-arrow {
+        margin: 0 2px;
+    }
+}
+
+@media (max-width: 600px) {
+    body { padding-top: 54px; }
+    .payment-notification-container {
+        top: 44px;
+        width: calc(100% - 16px);
+    }
+    .tc-notification-card,
+    .payment-notification-card {
+        padding: 12px 14px 14px;
+        border-radius: 16px;
+    }
+    .tc-close-btn {
+        width: 32px;
+        height: 32px;
+        min-height: 32px;
+    }
+    .tc-amount {
+        font-size: 1.25rem;
+    }
+    .welcome-text { font-size: 1.6rem; }
+    .container { padding: 0; }
+    .dashboard-header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    .site-title { font-size: 1.3rem; }
+    .btn { padding: 10px 16px; font-size: 0.9rem; }
+    .upi-display, .upgrade-upi-display {
+        flex-direction: column;
+        text-align: center;
+    }
+    .header-right {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 380px) {
+    .payment-notification-container {
+        top: 42px;
+        width: calc(100% - 12px);
+    }
+    .tc-notification-card,
+    .payment-notification-card {
+        padding: 10px 12px 12px;
+        border-radius: 14px;
+    }
+    .tc-app-name {
+        font-size: 0.72rem;
+    }
+    .tc-amount {
+        font-size: 1.18rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tc-notification-card,
+    .payment-notification-card {
+        transition: none !important;
+        animation: none !important;
+    }
+    .tc-notification-card.tc-notif-visible,
+    .payment-notification-card.visible {
+        transform: translateY(0) !important;
+        opacity: 1 !important;
+    }
+    .tc-notification-card.tc-notif-hiding,
+    .payment-notification-card.hiding {
+        transform: translateY(-130%) !important;
+        opacity: 0 !important;
+    }
+}

