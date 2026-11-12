@@ -17,11 +17,54 @@
             <span class="banner-divider">•</span>
             <span id="adminLiveClock">--:--:--</span>
             <span class="banner-divider">•</span>
-            <span class="sync-status">🟢 Live LocalStorage Sync Active</span>
+            <span class="sync-status">🟢 Live Secure Sync Active</span>
         </div>
     </div>
 
-    <div class="admin-container">
+    <!-- SECURE ADMIN GATEKEEPER LOGIN SCREEN (RESTRICTED ACCESS) -->
+    <div id="adminGatekeeper" class="admin-gatekeeper-wrap">
+        <div class="admin-gatekeeper-card">
+            <div class="admin-gatekeeper-shield">🛡️</div>
+            <h2 class="admin-gatekeeper-title">ADMIN ACCESS CONTROL</h2>
+            <p class="admin-gatekeeper-subtitle">Restricted admin area. Please enter your authorized Admin ID and Password to unlock the control portal.</p>
+
+            <form id="adminLoginForm" class="admin-gatekeeper-form">
+                <div>
+                    <label for="adminAuthId">Admin User ID</label>
+                    <div class="admin-gatekeeper-input-wrapper">
+                        <input type="text" id="adminAuthId" class="admin-gatekeeper-input" placeholder="e.g. PANNELMANAGER@9405" autocomplete="username" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="adminAuthPassword">Security Password</label>
+                    <div class="admin-gatekeeper-input-wrapper">
+                        <input type="password" id="adminAuthPassword" class="admin-gatekeeper-input" placeholder="Enter password" autocomplete="current-password" required>
+                        <button type="button" class="admin-toggle-pwd" id="adminTogglePasswordBtn" title="Show/Hide Password">👁️</button>
+                    </div>
+                </div>
+
+                <div id="adminLoginMessage" class="message" style="display:none;margin-top:6px;"></div>
+
+                <button type="submit" class="btn-gatekeeper-login" id="adminLoginSubmitBtn">
+                    <span>Unlock Admin Panel →</span>
+                </button>
+            </form>
+
+            <div class="admin-gatekeeper-hint">
+                <span>🔐 Authorized Access:</span><br>
+                <span>ID: <strong>PANNELMANAGER@9405</strong></span> • 
+                <span>Pass: <strong>PANNEL@9405</strong></span>
+            </div>
+
+            <div style="margin-top: 18px;">
+                <a href="index.html" style="color: #94a3b8; font-size: 0.82rem; text-decoration: none;">← Return to Main Website</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN ADMIN CONTROL PORTAL (DISPLAYED ONLY AFTER AUTHENTICATION) -->
+    <div class="admin-container" id="adminMainContent" style="display:none;">
         <!-- ADMIN NAVBAR -->
         <header class="admin-header">
             <div class="admin-brand">
@@ -33,6 +76,13 @@
             </div>
 
             <div class="admin-header-actions">
+                <div class="admin-auth-badge" id="adminAuthBadge">
+                    <span>🛡️</span>
+                    <span id="adminSessionUser">PANNELMANAGER@9405</span>
+                </div>
+                <button type="button" class="btn btn-admin-logout" id="adminLogoutBtn" title="Logout and lock portal">
+                    <span>🔒 Lock Portal</span>
+                </button>
                 <button type="button" class="btn btn-admin-action" id="adminSimulateLoginBtn" title="Simulate a new user login event to test live logs">
                     <span>⚡ Simulate Activity</span>
                 </button>
@@ -146,7 +196,7 @@
             </button>
             <button type="button" class="admin-tab-btn" data-tab="withdrawalsQueue">
                 <span class="tab-icon">💳</span>
-                <span>Withdrawals &amp; UTR Submissions</span>
+                <span>Customer UTRs &amp; Submissions ("Kisne Kya UTR Fill Kiya")</span>
                 <span class="tab-count-badge" id="withdrawalsCountBadge">0</span>
             </button>
             <button type="button" class="admin-tab-btn" data-tab="smsNotifications">

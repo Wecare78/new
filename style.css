@@ -3002,3 +3002,253 @@ body::before {
     }
 }
 
+/* ============================================
+   ADMIN GATEKEEPER (PASSWORD PROTECTED ACCESS)
+   ============================================ */
+.admin-gatekeeper-wrap {
+    min-height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 16px;
+}
+
+.admin-gatekeeper-card {
+    width: 100%;
+    max-width: 460px;
+    background: linear-gradient(180deg, #131c31 0%, #0c1222 100%);
+    border: 1px solid rgba(102, 117, 255, 0.35);
+    box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65), 0 0 40px rgba(102, 117, 255, 0.15);
+    border-radius: 20px;
+    padding: 38px 28px;
+    text-align: center;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.admin-gatekeeper-shield {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 18px;
+    background: linear-gradient(135deg, rgba(102, 117, 255, 0.2), rgba(53, 214, 232, 0.25));
+    border: 2px solid rgba(102, 117, 255, 0.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    box-shadow: 0 0 25px rgba(102, 117, 255, 0.3);
+}
+
+.admin-gatekeeper-title {
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.admin-gatekeeper-subtitle {
+    font-size: 0.88rem;
+    color: #94a3b8;
+    line-height: 1.45;
+    margin-bottom: 24px;
+}
+
+.admin-gatekeeper-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    text-align: left;
+}
+
+.admin-gatekeeper-form label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    display: block;
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+}
+
+.admin-gatekeeper-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.admin-gatekeeper-input {
+    width: 100%;
+    padding: 13px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 10px;
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.admin-gatekeeper-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    background: rgba(102, 117, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(102, 117, 255, 0.2);
+}
+
+.admin-toggle-pwd {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 4px;
+}
+
+.admin-toggle-pwd:hover {
+    color: #ffffff;
+}
+
+.btn-gatekeeper-login {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #6675ff, #35d6e8);
+    border: none;
+    border-radius: 10px;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(102, 117, 255, 0.4);
+    transition: all 0.2s ease;
+    margin-top: 6px;
+}
+
+.btn-gatekeeper-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(102, 117, 255, 0.55);
+}
+
+.btn-gatekeeper-login:active {
+    transform: translateY(0);
+}
+
+.admin-gatekeeper-hint {
+    margin-top: 20px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(148, 163, 184, 0.25);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+
+.admin-gatekeeper-hint strong {
+    color: #38bdf8;
+    font-family: monospace;
+}
+
+.admin-auth-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #4ade80;
+    font-family: monospace;
+}
+
+.btn-admin-logout {
+    padding: 8px 14px;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 8px;
+    color: #f87171;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-admin-logout:hover {
+    background: rgba(239, 68, 68, 0.3);
+    color: #ffffff;
+    border-color: #ef4444;
+}
+
+.btn-approve-utr {
+    padding: 6px 12px;
+    background: rgba(34, 197, 94, 0.2);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    border-radius: 6px;
+    color: #4ade80;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-approve-utr:hover {
+    background: #22c55e;
+    color: #070b14;
+    box-shadow: 0 0 14px rgba(34, 197, 94, 0.5);
+}
+
+.btn-reject-utr {
+    padding: 6px 10px;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 6px;
+    color: #f87171;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 6px;
+    transition: all 0.2s ease;
+}
+
+.btn-reject-utr:hover {
+    background: #ef4444;
+    color: #ffffff;
+}
+
+.utr-code-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+.btn-copy-utr-mini {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    cursor: pointer;
+}
+
+.btn-copy-utr-mini:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+

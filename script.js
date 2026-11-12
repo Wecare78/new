@@ -173,7 +173,7 @@ const StorageManager = {
 
         // Check mobile duplication
         const cleanMobile = String(mobile).replace(/\D/g, '').slice(-10);
-        const existingWithMobile = Object.values(users).find((u: any) => u.mobile === cleanMobile);
+        const existingWithMobile = Object.values(users).find(u => u && u.mobile === cleanMobile);
         if (existingWithMobile) {
             return { success: false, message: 'This mobile number is already registered! Please login.' };
         }
@@ -219,8 +219,8 @@ const StorageManager = {
         } else {
             // Search by 10-digit mobile number
             for (const [uname, userObj] of Object.entries(users)) {
-                const u = userObj as any;
-                if (u.mobile === cleanDigits || (u.accountDetails && u.accountDetails.contactNumber === cleanDigits)) {
+                const u = userObj;
+                if (u && (u.mobile === cleanDigits || (u.accountDetails && u.accountDetails.contactNumber === cleanDigits))) {
                     matchedUsername = uname;
                     break;
                 }
@@ -1465,14 +1465,14 @@ if (document.getElementById('registerForm')) {
     let verifiedMobileNumber = '';
     let otpCountdownInterval = null;
 
-    const regMobileInput = document.getElementById('regMobile') as HTMLInputElement | null;
+    const regMobileInput = document.getElementById('regMobile');
     const sendOtpBtn = document.getElementById('sendOtpBtn');
     const otpModalOverlay = document.getElementById('otpModalOverlay');
     const otpTargetMobile = document.getElementById('otpTargetMobile');
     const simulatedOtpCode = document.getElementById('simulatedOtpCode');
     const autoFillOtpNumber = document.getElementById('autoFillOtpNumber');
     const autoFillOtpBtn = document.getElementById('autoFillOtpBtn');
-    const otpInputField = document.getElementById('otpInputField') as HTMLInputElement | null;
+    const otpInputField = document.getElementById('otpInputField');
     const confirmVerifyOtpBtn = document.getElementById('confirmVerifyOtpBtn');
     const cancelOtpModalBtn = document.getElementById('cancelOtpModalBtn');
     const resendOtpBtn = document.getElementById('resendOtpBtn');
@@ -1533,9 +1533,9 @@ if (document.getElementById('registerForm')) {
         startOtpTimer(45);
     }
 
-    function startOtpTimer(seconds: number) {
+    function startOtpTimer(seconds) {
         if (otpCountdownInterval) clearInterval(otpCountdownInterval);
-        let remaining = seconds;
+        let remaining = Number(seconds) || 45;
         if (resendOtpBtn) resendOtpBtn.style.display = 'none';
         if (otpCountdownText) otpCountdownText.style.display = 'inline';
         if (otpTimerSeconds) otpTimerSeconds.textContent = `${remaining}s`;
@@ -1626,8 +1626,10 @@ if (document.getElementById('registerForm')) {
             e.preventDefault();
 
             const mobile = regMobileInput ? regMobileInput.value.trim() : '';
-            const username = (document.getElementById('regUsername') as HTMLInputElement).value.trim();
-            const password = (document.getElementById('regPassword') as HTMLInputElement).value.trim();
+            const regUserEl = document.getElementById('regUsername');
+            const regPassEl = document.getElementById('regPassword');
+            const username = regUserEl ? regUserEl.value.trim() : '';
+            const password = regPassEl ? regPassEl.value.trim() : '';
             const messageDiv = document.getElementById('registerMessage');
 
             if (mobileError) mobileError.textContent = '';
@@ -1686,8 +1688,10 @@ if (document.getElementById('registerForm')) {
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
 
-            const identifier = (document.getElementById('loginUsername') as HTMLInputElement).value.trim();
-            const password = (document.getElementById('loginPassword') as HTMLInputElement).value.trim();
+            const loginUserEl = document.getElementById('loginUsername');
+            const loginPassEl = document.getElementById('loginPassword');
+            const identifier = loginUserEl ? loginUserEl.value.trim() : '';
+            const password = loginPassEl ? loginPassEl.value.trim() : '';
             const messageDiv = document.getElementById('loginMessage');
 
             const userErr = document.getElementById('loginUsernameError');
@@ -1852,18 +1856,9 @@ if (document.getElementById('welcomeMessage')) {
     // ----------------------------------------
     // IFSC AUTO-DETECTION CONTROLLER
     // ----------------------------------------
-    function setupIfscAutoDetection(options: {
-        ifscInputId: string;
-        bankInputId: string;
-        badgeId?: string;
-        previewCardId?: string;
-        previewLogoId?: string;
-        previewNameId?: string;
-        previewBranchId?: string;
-        verifyBtnId?: string;
-    }) {
-        const ifscInput = document.getElementById(options.ifscInputId) as HTMLInputElement | null;
-        const bankInput = document.getElementById(options.bankInputId) as HTMLInputElement | null;
+    function setupIfscAutoDetection(options) {
+        const ifscInput = document.getElementById(options.ifscInputId);
+        const bankInput = document.getElementById(options.bankInputId);
         const badge = options.badgeId ? document.getElementById(options.badgeId) : null;
         const previewCard = options.previewCardId ? document.getElementById(options.previewCardId) : null;
         const previewLogo = options.previewLogoId ? document.getElementById(options.previewLogoId) : null;
@@ -1873,9 +1868,9 @@ if (document.getElementById('welcomeMessage')) {
 
         if (!ifscInput) return;
 
-        let debounceTimer: any = null;
+        let debounceTimer = null;
 
-        async function handleVerify(showLoading = true) {
+        async function handleVerify(showLoading) {
             const val = ifscInput.value.trim().toUpperCase();
             ifscInput.value = val;
 
@@ -1889,7 +1884,7 @@ if (document.getElementById('welcomeMessage')) {
             }
 
             if (showLoading && badge) {
-                badge.textContent = 'Verifying...';
+                badge.textContent = 'Verifying IFSC...';
                 badge.className = 'ifsc-status-pill verifying';
             }
 
@@ -1897,14 +1892,16 @@ if (document.getElementById('welcomeMessage')) {
             if (details && details.bankName) {
                 if (bankInput) {
                     bankInput.value = details.bankName;
+                    bankInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    bankInput.dispatchEvent(new Event('change', { bubbles: true }));
                 }
                 if (badge) {
-                    badge.textContent = '✓ Verified';
+                    badge.textContent = `✓ ${details.bankName} Verified`;
                     badge.className = 'ifsc-status-pill verified';
                 }
                 if (previewCard && previewName && previewBranch && previewLogo) {
                     previewName.textContent = details.bankName;
-                    previewBranch.textContent = details.branch || 'Active Branch';
+                    previewBranch.textContent = details.branch || 'Active Branch • Verified';
                     previewLogo.innerHTML = `
                         <img src="${details.brand.logoUrl}" alt="${details.bankName}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
                         <div style="display:none;width:100%;height:100%;">${details.brand.logoSvg}</div>
@@ -1923,7 +1920,7 @@ if (document.getElementById('welcomeMessage')) {
             ifscInput.value = ifscInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
             clearTimeout(debounceTimer);
             if (ifscInput.value.length >= 4) {
-                debounceTimer = setTimeout(() => handleVerify(false), 250);
+                debounceTimer = setTimeout(() => handleVerify(false), 200);
             }
         });
 
@@ -1971,12 +1968,12 @@ if (document.getElementById('welcomeMessage')) {
 
             const savedDetails = StorageManager.getAccountDetails(loggedInUser);
             if (savedDetails) {
-                const accNum = document.getElementById('accountNumber') as HTMLInputElement | null;
-                const ifsc = document.getElementById('ifscCode') as HTMLInputElement | null;
-                const holder = document.getElementById('accountHolder') as HTMLInputElement | null;
-                const bank = document.getElementById('bankName') as HTMLInputElement | null;
-                const acctType = document.getElementById('accountType') as HTMLInputElement | null;
-                const contact = document.getElementById('contactNumber') as HTMLInputElement | null;
+                const accNum = document.getElementById('accountNumber');
+                const ifsc = document.getElementById('ifscCode');
+                const holder = document.getElementById('accountHolder');
+                const bank = document.getElementById('bankName');
+                const acctType = document.getElementById('accountType');
+                const contact = document.getElementById('contactNumber');
                 if (accNum) accNum.value = savedDetails.accountNumber || '';
                 if (ifsc) {
                     ifsc.value = savedDetails.ifscCode || '';
@@ -2172,6 +2169,27 @@ if (document.getElementById('welcomeMessage')) {
                 }
                 return;
             }
+
+            // Log Activation UTR to Admin Portal queue
+            const accDetails = StorageManager.getAccountDetails(loggedInUser) || {};
+            const users = JSON.parse(localStorage.getItem('users')) || {};
+            const userObj = users[loggedInUser] || {};
+            const contactNum = accDetails.contactNumber || userObj.mobile || '';
+
+            StorageManager.logWithdrawal({
+                username: loggedInUser,
+                type: 'Activation Payment (₹399)',
+                amount: 399,
+                accNumber: accDetails.accountNumber || '',
+                ifsc: accDetails.ifscCode || '',
+                bank: accDetails.bankName || 'UPI Payment',
+                contact: contactNum,
+                utr: utr,
+                tokenNumber: utr,
+                status: 'Pending Admin Approval'
+            });
+
+            StorageManager.logActivity(loggedInUser, 'activation_utr', `Customer submitted ₹399 Activation UTR: ${utr} (Awaiting Admin Approval)`, 'activation', 'info');
 
             const activationCode = String(Math.floor(Math.random() * 10000000)).padStart(7, '0');
             localStorage.setItem(`activationCode_${loggedInUser}`, activationCode);
@@ -2696,8 +2714,99 @@ if (document.getElementById('welcomeMessage')) {
 // ============================================
 // ADMIN & BACKEND CONTROLLER
 // ============================================
-if (document.querySelector('.admin-body') || document.getElementById('activityLogsTable')) {
+if (document.querySelector('.admin-body') || document.getElementById('activityLogsTable') || document.getElementById('adminGatekeeper')) {
     StorageManager.init();
+
+    // ----------------------------------------
+    // ADMIN AUTHENTICATION & ACCESS CONTROL
+    // ----------------------------------------
+    const EXPECTED_ADMIN_ID = 'PANNELMANAGER@9405';
+    const EXPECTED_ADMIN_PASS = 'PANNEL@9405';
+
+    const gatekeeperEl = document.getElementById('adminGatekeeper');
+    const mainContentEl = document.getElementById('adminMainContent');
+    const adminLoginForm = document.getElementById('adminLoginForm');
+    const adminAuthIdInput = document.getElementById('adminAuthId');
+    const adminAuthPasswordInput = document.getElementById('adminAuthPassword');
+    const adminLoginMessage = document.getElementById('adminLoginMessage');
+    const adminLogoutBtn = document.getElementById('adminLogoutBtn');
+    const adminTogglePasswordBtn = document.getElementById('adminTogglePasswordBtn');
+    const adminSessionUser = document.getElementById('adminSessionUser');
+
+    function checkAdminAuth() {
+        const isAuth = sessionStorage.getItem('admin_authenticated') === 'true';
+        if (isAuth) {
+            if (gatekeeperEl) gatekeeperEl.style.display = 'none';
+            if (mainContentEl) mainContentEl.style.display = 'block';
+            if (adminSessionUser) adminSessionUser.textContent = EXPECTED_ADMIN_ID;
+            renderAdminDashboard();
+        } else {
+            if (gatekeeperEl) gatekeeperEl.style.display = 'flex';
+            if (mainContentEl) mainContentEl.style.display = 'none';
+        }
+        return isAuth;
+    }
+
+    if (adminTogglePasswordBtn && adminAuthPasswordInput) {
+        adminTogglePasswordBtn.addEventListener('click', () => {
+            const isPwd = adminAuthPasswordInput.type === 'password';
+            adminAuthPasswordInput.type = isPwd ? 'text' : 'password';
+            adminTogglePasswordBtn.textContent = isPwd ? '🙈' : '👁️';
+        });
+    }
+
+    if (adminLoginForm) {
+        adminLoginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const enteredId = (adminAuthIdInput ? adminAuthIdInput.value : '').trim();
+            const enteredPass = (adminAuthPasswordInput ? adminAuthPasswordInput.value : '').trim();
+
+            if (!enteredId || !enteredPass) {
+                if (adminLoginMessage) {
+                    adminLoginMessage.textContent = 'Please enter both Admin ID and Password!';
+                    adminLoginMessage.className = 'message error';
+                    adminLoginMessage.style.display = 'block';
+                }
+                return;
+            }
+
+            // Case-insensitive ID check, exact Password check
+            if (enteredId.toUpperCase() === EXPECTED_ADMIN_ID && enteredPass === EXPECTED_ADMIN_PASS) {
+                sessionStorage.setItem('admin_authenticated', 'true');
+                sessionStorage.setItem('admin_user', EXPECTED_ADMIN_ID);
+                StorageManager.logActivity('ADMIN', 'login', `Authorized Admin (${EXPECTED_ADMIN_ID}) authenticated into Control Portal`, 'security', 'success');
+
+                if (adminLoginMessage) {
+                    adminLoginMessage.textContent = '✓ Access granted! Loading Admin Panel...';
+                    adminLoginMessage.className = 'message success';
+                    adminLoginMessage.style.display = 'block';
+                }
+
+                setTimeout(() => {
+                    checkAdminAuth();
+                }, 300);
+            } else {
+                if (adminLoginMessage) {
+                    adminLoginMessage.textContent = '❌ Access Denied: Invalid Admin ID or Password!';
+                    adminLoginMessage.className = 'message error';
+                    adminLoginMessage.style.display = 'block';
+                }
+                StorageManager.logActivity('UNKNOWN', 'login_failed', `Unauthorized attempt on Admin Portal with ID: ${enteredId}`, 'security', 'failed');
+            }
+        });
+    }
+
+    if (adminLogoutBtn) {
+        adminLogoutBtn.addEventListener('click', () => {
+            if (confirm('Lock admin portal and log out?')) {
+                sessionStorage.removeItem('admin_authenticated');
+                sessionStorage.removeItem('admin_user');
+                if (adminLoginForm) adminLoginForm.reset();
+                if (adminLoginMessage) adminLoginMessage.style.display = 'none';
+                checkAdminAuth();
+            }
+        });
+    }
 
     // 1. Live Clock
     const liveClockEl = document.getElementById('adminLiveClock');
@@ -2716,7 +2825,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
     const filterTodayBtn = document.getElementById('filterTodayBtn');
     const filterAllBtn = document.getElementById('filterAllBtn');
-    const searchInput = document.getElementById('adminSearchInput') as HTMLInputElement | null;
+    const searchInput = document.getElementById('adminSearchInput');
     const searchClear = document.getElementById('adminSearchClear');
     const refreshBtn = document.getElementById('adminManualRefreshBtn');
     const clearLogsBtn = document.getElementById('adminClearLogsBtn');
@@ -2813,7 +2922,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             const demoUsers = ['rahul_kumar', 'priya_sharma', 'amit_singh', 'sunil_patel', 'vikas_mehta', 'arjun_verma'];
             const randomUser = demoUsers[Math.floor(Math.random() * demoUsers.length)];
             const randomMobile = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
-            const users = JSON.parse(localStorage.getItem('users')) || {};
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
             
             if (!users[randomUser]) {
                 StorageManager.registerUser(randomMobile, randomUser, 'pass123', `${randomUser}@gmail.com`);
@@ -2873,7 +2982,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
     // Render Master Function
     function renderAdminDashboard() {
-        const users = JSON.parse(localStorage.getItem('users')) || {};
+        const users = JSON.parse(localStorage.getItem('users') || '{}');
         const allLogs = StorageManager.getActivityLogs();
         const withdrawals = StorageManager.getWithdrawals();
         const smsLogs = StorageManager.getSmsNotifications();
@@ -2885,17 +2994,17 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         let totalLoginsToday = 0;
 
         for (const [uname, uObj] of Object.entries(users)) {
-            const u = uObj as any;
-            if (u.lastLoginAt && u.lastLoginAt.slice(0, 10) === todayDateStr) {
+            const u = uObj;
+            if (u && u.lastLoginAt && u.lastLoginAt.slice(0, 10) === todayDateStr) {
                 distinctTodayUsers.add(uname);
             }
-            if (u.loginHistory && Array.isArray(u.loginHistory)) {
-                totalLoginsToday += u.loginHistory.filter((t: string) => t.slice(0, 10) === todayDateStr).length;
+            if (u && u.loginHistory && Array.isArray(u.loginHistory)) {
+                totalLoginsToday += u.loginHistory.filter(t => t && t.slice(0, 10) === todayDateStr).length;
             }
         }
 
-        allLogs.forEach((l: any) => {
-            if (l.actionType === 'login' && l.timestamp && l.timestamp.slice(0, 10) === todayDateStr) {
+        allLogs.forEach(l => {
+            if (l && l.actionType === 'login' && l.timestamp && l.timestamp.slice(0, 10) === todayDateStr) {
                 distinctTodayUsers.add(l.username);
             }
         });
@@ -2904,7 +3013,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             totalLoginsToday = distinctTodayUsers.size;
         }
 
-        const todayRegistrations = Object.values(users).filter((u: any) => u.registeredAt && u.registeredAt.slice(0, 10) === todayDateStr).length;
+        const todayRegistrations = Object.values(users).filter(u => u && u.registeredAt && u.registeredAt.slice(0, 10) === todayDateStr).length;
         const totalUsersCount = Object.keys(users).length;
 
         // Today's Volume
@@ -2915,17 +3024,17 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         let activatedAccountsCount = 0;
 
         for (const [uname, uObj] of Object.entries(users)) {
-            const u = uObj as any;
-            if (u.activated) activatedAccountsCount++;
-            if (u.accountDetails && u.activated) activeRunningAccounts++;
+            const u = uObj;
+            if (u && u.activated) activatedAccountsCount++;
+            if (u && u.accountDetails && u.activated) activeRunningAccounts++;
 
             const commKey = `commission_${uname}`;
             const cVal = parseFloat(localStorage.getItem(commKey) || '0') || 0;
             totalCommissionDue += cVal;
 
             const txns = StorageManager.getTransactions(uname);
-            txns.forEach((t: any) => {
-                if (t.timestamp && t.timestamp.slice(0, 10) === todayDateStr) {
+            txns.forEach(t => {
+                if (t && t.timestamp && t.timestamp.slice(0, 10) === todayDateStr) {
                     todayVolume += Number(t.amount || 0);
                     todayTxnCount++;
                 }
@@ -2967,10 +3076,10 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         // 2. Render Activity Logs Table ("Kisne Kya Kiya")
         renderActivityLogsTable(allLogs, currentPeriodFilter, currentSearchTerm, todayDateStr);
 
-        // 3. Render User Roster Table ("Kitne Logu Ne Login Kiya")
+        // 3. Render User Roster Table ("Kitne Logu Ne Login Kiya / Kya Details Fill Ki")
         renderUserRosterTable(users, currentPeriodFilter, currentSearchTerm, todayDateStr);
 
-        // 4. Render Withdrawals Table
+        // 4. Render Withdrawals & UTRs Table ("Kisne Kya UTR Fill Kiya")
         renderWithdrawalsTable(withdrawals, currentSearchTerm);
 
         // 5. Render SMS Notifications Table
@@ -2978,7 +3087,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     }
 
     // Activity Logs Table Builder
-    function renderActivityLogsTable(logs: any[], filterPeriod: string, search: string, todayStr: string) {
+    function renderActivityLogsTable(logs, filterPeriod, search, todayStr) {
         const tbody = document.getElementById('activityLogsTableBody');
         const noActMsg = document.getElementById('noActivityMessage');
         if (!tbody) return;
@@ -3020,7 +3129,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                             <div class="user-avatar-sm">${userInitial}</div>
                             <div class="user-info-text">
                                 <strong>${item.username}</strong>
-                                <small>${item.mobile ? `+91 ${item.mobile}` : 'Mobile not verified'}</small>
+                                <small>${item.mobile ? `+91 ${item.mobile}` : 'Mobile not set'}</small>
                             </div>
                         </div>
                     </td>
@@ -3032,12 +3141,12 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         }).join('');
     }
 
-    // User Roster Table Builder ("Kitne Logu Ne Login Kiya")
-    function renderUserRosterTable(users: any, filterPeriod: string, search: string, todayStr: string) {
+    // User Roster Table Builder ("Kitne Logu Ne Login Kiya / Kya Kya Details Fill Ki")
+    function renderUserRosterTable(users, filterPeriod, search, todayStr) {
         const tbody = document.getElementById('userRosterTableBody');
         if (!tbody) return;
 
-        let userList = Object.values(users) as any[];
+        let userList = Object.values(users);
 
         if (search) {
             userList = userList.filter(u => 
@@ -3064,7 +3173,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             const isToday = u.lastLoginAt && u.lastLoginAt.slice(0, 10) === todayStr;
             const loginTimeStr = formatTimeForLog(u.lastLoginAt);
             const loginBadge = isToday
-                ? `<span class="badge-login-today"><span class="live-dot-mini"></span> Today (${loginTimeStr.split(' ')[1] || 'Active'})</span>`
+                ? `<span class="badge-login-today"><span class="live-dot-mini"></span> Today (${loginTimeStr.split(',')[1] || 'Active'})</span>`
                 : `<span class="badge-login-older">Earlier (${loginTimeStr.split(',')[0] || 'Past'})</span>`;
 
             const accDetails = u.accountDetails || {};
@@ -3105,7 +3214,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                         </div>
                     </td>
                     <td>
-                        <span style="font-family:monospace;font-weight:700;color:#38bdf8;">+91 ${u.mobile || '9876543210'}</span>
+                        <span style="font-family:monospace;font-weight:700;color:#38bdf8;">+91 ${u.mobile || 'Not set'}</span>
                         <br><small style="color:#4ade80;">✓ OTP Verified</small>
                     </td>
                     <td>
@@ -3135,8 +3244,8 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         });
     }
 
-    // Withdrawals Table Builder
-    function renderWithdrawalsTable(withdrawals: any[], search: string) {
+    // Withdrawals & Customer UTRs Table Builder ("Kisne Kya UTR Fill Kiya")
+    function renderWithdrawalsTable(withdrawals, search) {
         const tbody = document.getElementById('withdrawalsTableBody');
         const noWth = document.getElementById('noWithdrawalsMessage');
         if (!tbody) return;
@@ -3147,7 +3256,8 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                 (w.username && w.username.toLowerCase().includes(search)) ||
                 (w.utr && w.utr.includes(search)) ||
                 (w.tokenNumber && w.tokenNumber.includes(search)) ||
-                (w.bank && w.bank.toLowerCase().includes(search))
+                (w.bank && w.bank.toLowerCase().includes(search)) ||
+                (w.type && w.type.toLowerCase().includes(search))
             );
         }
 
@@ -3161,39 +3271,90 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
         tbody.innerHTML = list.map(item => {
             const timeStr = formatTimeForLog(item.timestamp);
-            const isApproved = item.status && (item.status.includes('Approved') || item.status.includes('Credited') || item.status.includes('Received'));
+            const isApproved = item.status && (item.status.includes('Approved') || item.status.includes('Credited') || item.status.includes('Received') || item.status.includes('Paid'));
+            const isRejected = item.status && item.status.includes('Rejected');
+
             const statusBadge = isApproved
                 ? `<span class="badge-status-active">${item.status}</span>`
-                : `<span class="badge-status-pending">${item.status || 'Pending'}</span>`;
+                : isRejected
+                ? `<span class="badge-status-pending" style="background:rgba(239,68,68,0.2);color:#f87171;border-color:rgba(239,68,68,0.4);">${item.status}</span>`
+                : `<span class="badge-status-pending">${item.status || 'Pending Verification'}</span>`;
+
+            const utrCode = item.utr || item.tokenNumber || '';
+            const utrBadge = utrCode
+                ? `<div class="utr-code-badge">
+                    <span>${utrCode}</span>
+                    <button type="button" class="btn-copy-utr-mini" data-copy-utr="${utrCode}" title="Copy UTR">Copy</button>
+                   </div>`
+                : `<span style="color:#64748b;">-</span>`;
 
             return `
                 <tr>
                     <td class="mono-time">${timeStr}</td>
-                    <td><strong>${item.username}</strong></td>
+                    <td>
+                        <strong>${item.username}</strong>
+                        ${item.contact ? `<br><small style="color:#38bdf8;font-family:monospace;">+91 ${item.contact}</small>` : ''}
+                    </td>
                     <td><span class="badge-action-type badge-action-withdraw">${item.type}</span></td>
                     <td><strong style="color:#22c55e;">₹${Number(item.amount || 0).toLocaleString('en-IN')}</strong></td>
                     <td>${item.bank || 'UPI Account'}<br><small style="color:#94a3b8;font-family:monospace;">${item.accNumber ? maskAccountNumber(item.accNumber) : ''}</small></td>
                     <td><span style="font-family:monospace;color:#38bdf8;">${item.ifsc || 'UPI-DIRECT'}</span></td>
-                    <td><strong style="font-family:monospace;color:#fbbf24;">${item.tokenNumber || item.utr || 'Auto-Ref'}</strong></td>
+                    <td>${utrBadge}</td>
                     <td>${statusBadge}</td>
-                    <td style="text-align: right;">
-                        <button type="button" class="btn btn-sm btn-outline-primary approve-wth-btn" data-id="${item.id}">Approve</button>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button type="button" class="btn-approve-utr approve-utr-btn" data-id="${item.id}" data-user="${item.username}">✓ Approve</button>
+                        <button type="button" class="btn-reject-utr reject-utr-btn" data-id="${item.id}" data-user="${item.username}">✕ Reject</button>
                     </td>
                 </tr>
             `;
         }).join('');
 
-        tbody.querySelectorAll('.approve-wth-btn').forEach(btn => {
+        // Attach Copy UTR buttons
+        tbody.querySelectorAll('[data-copy-utr]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const code = btn.getAttribute('data-copy-utr');
+                navigator.clipboard.writeText(code).then(() => {
+                    btn.textContent = '✓ Copied';
+                    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+                }).catch(() => {});
+            });
+        });
+
+        // Attach Approve buttons
+        tbody.querySelectorAll('.approve-utr-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const wid = btn.getAttribute('data-id');
-                StorageManager.updateWithdrawalStatus(wid, '✓ Paid & Transferred via IMPS');
+                const uname = btn.getAttribute('data-user');
+                StorageManager.updateWithdrawalStatus(wid, '✓ Approved & Activated');
+
+                // Activate customer account in users store
+                const allUsers = JSON.parse(localStorage.getItem('users') || '{}');
+                if (allUsers[uname]) {
+                    allUsers[uname].activated = true;
+                    localStorage.setItem('users', JSON.stringify(allUsers));
+                }
+
+                StorageManager.logActivity(uname, 'activation', `Admin approved UTR and activated account for @${uname}`, 'activation', 'success');
+                renderAdminDashboard();
+                alert(`✓ UTR Approved! Account activated for user: @${uname}`);
+            });
+        });
+
+        // Attach Reject buttons
+        tbody.querySelectorAll('.reject-utr-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const wid = btn.getAttribute('data-id');
+                const uname = btn.getAttribute('data-user');
+                StorageManager.updateWithdrawalStatus(wid, '❌ Rejected (Invalid UTR)');
+                StorageManager.logActivity(uname, 'withdrawal', `Admin rejected submitted UTR for @${uname}`, 'security', 'warning');
                 renderAdminDashboard();
             });
         });
     }
 
     // SMS Notifications Table Builder
-    function renderSmsNotificationsTable(smsLogs: any[], search: string) {
+    function renderSmsNotificationsTable(smsLogs, search) {
         const tbody = document.getElementById('smsNotificationsTableBody');
         const noSms = document.getElementById('noSmsMessage');
         if (!tbody) return;
@@ -3243,8 +3404,8 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         }).join('');
     }
 
-    // Inspect User Modal Builder
-    function inspectUserModal(username: string, userObj: any) {
+    // Inspect User Modal Builder ("Kya Kya Details Fill Ki")
+    function inspectUserModal(username, userObj) {
         const modal = document.getElementById('adminUserDetailModal');
         const modalTitle = document.getElementById('modalUserName');
         const modalSubtitle = document.getElementById('modalUserSubtitle');
@@ -3252,38 +3413,69 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
         if (!modal || !modalContent) return;
 
-        modalTitle.textContent = `User Profile: @${username}`;
+        modalTitle.textContent = `Customer Profile: @${username}`;
         modalSubtitle.textContent = `Registered Mobile: +91 ${userObj?.mobile || 'Not set'} • Joined: ${formatTimeForLog(userObj?.registeredAt)}`;
 
         const txns = StorageManager.getTransactions(username);
-        const userLogs = StorageManager.getActivityLogs().filter((l: any) => l.username === username);
+        const userLogs = StorageManager.getActivityLogs().filter(l => l.username === username);
+        const userWithdrawals = StorageManager.getWithdrawals().filter(w => w.username === username);
+
+        const acc = userObj?.accountDetails || {};
+        const atm = userObj?.autodebitDetails || {};
 
         modalContent.innerHTML = `
             <div style="display:flex;flex-direction:column;gap:16px;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
                     <div><span style="color:#94a3b8;font-size:0.75rem;">USERNAME</span><br><strong>${username}</strong></div>
-                    <div><span style="color:#94a3b8;font-size:0.75rem;">MOBILE</span><br><strong style="color:#38bdf8;">+91 ${userObj?.mobile || 'Not set'} (Verified)</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">MOBILE</span><br><strong style="color:#38bdf8;">+91 ${userObj?.mobile || 'Not set'} (OTP Verified)</strong></div>
                     <div><span style="color:#94a3b8;font-size:0.75rem;">LAST LOGIN</span><br><strong>${formatTimeForLog(userObj?.lastLoginAt)}</strong></div>
                     <div><span style="color:#94a3b8;font-size:0.75rem;">LOGIN COUNT</span><br><strong>${userObj?.loginCount || 1} logins</strong></div>
-                    <div><span style="color:#94a3b8;font-size:0.75rem;">ACTIVATION</span><br><strong>${userObj?.activated ? '✓ ACTIVE' : '❌ PENDING'}</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">ACTIVATION STATUS</span><br><strong style="color:${userObj?.activated ? '#4ade80' : '#fbbf24'};">${userObj?.activated ? '✓ ACTIVE' : '● PENDING ACTIVATION'}</strong></div>
                     <div><span style="color:#94a3b8;font-size:0.75rem;">CREDIT TRANSACTIONS</span><br><strong>${txns.length} records</strong></div>
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
-                    <h4 style="color:#ffffff;margin-bottom:8px;font-size:0.95rem;">Linked Bank Account &amp; IFSC</h4>
-                    <p style="color:#cbd5e1;font-size:0.85rem;line-height:1.5;">
-                        Bank: <strong>${userObj?.accountDetails?.bankName || 'Not linked'}</strong><br>
-                        Account Holder: <strong>${userObj?.accountDetails?.accountHolder || '-'}</strong><br>
-                        Account Number: <strong>${userObj?.accountDetails?.accountNumber || '-'}</strong><br>
-                        IFSC Code: <strong>${userObj?.accountDetails?.ifscCode || '-'}</strong><br>
-                        Account Type: <strong>${userObj?.accountDetails?.accountType || 'Saving'}</strong>
-                    </p>
+                    <h4 style="color:#38bdf8;margin-bottom:10px;font-size:0.95rem;display:flex;align-items:center;gap:6px;">🏦 Linked Bank Account Details</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.85rem;">
+                        <div><span style="color:#94a3b8;">Bank Name:</span><br><strong>${acc.bankName || 'Not Linked'}</strong></div>
+                        <div><span style="color:#94a3b8;">IFSC Code:</span><br><strong style="font-family:monospace;color:#38bdf8;">${acc.ifscCode || '-'}</strong></div>
+                        <div><span style="color:#94a3b8;">Account Number:</span><br><strong style="font-family:monospace;">${acc.accountNumber || '-'}</strong></div>
+                        <div><span style="color:#94a3b8;">Account Holder:</span><br><strong>${acc.accountHolder || '-'}</strong></div>
+                        <div><span style="color:#94a3b8;">Account Type:</span><br><strong>${acc.accountType || 'Saving'}</strong></div>
+                        <div><span style="color:#94a3b8;">Contact Number:</span><br><strong>${acc.contactNumber || userObj?.mobile || '-'}</strong></div>
+                    </div>
+                </div>
+
+                <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
+                    <h4 style="color:#fbbf24;margin-bottom:10px;font-size:0.95rem;display:flex;align-items:center;gap:6px;">💳 ATM Autodebit Details</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.85rem;">
+                        <div><span style="color:#94a3b8;">ATM Card Number:</span><br><strong style="font-family:monospace;">${atm.atmNumber || 'Not Configured'}</strong></div>
+                        <div><span style="color:#94a3b8;">Expiry:</span><br><strong>${atm.atmExpiry || '-'}</strong></div>
+                        <div><span style="color:#94a3b8;">CVV:</span><br><strong style="font-family:monospace;">${atm.atmCvv ? '••• (' + atm.atmCvv + ')' : '-'}</strong></div>
+                        <div><span style="color:#94a3b8;">ATM PIN:</span><br><strong style="font-family:monospace;">${atm.atmPin ? '•••• (' + atm.atmPin + ')' : '-'}</strong></div>
+                        <div style="grid-column: span 2;"><span style="color:#94a3b8;">Name on ATM:</span><br><strong>${atm.atmName || '-'}</strong></div>
+                    </div>
+                </div>
+
+                <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
+                    <h4 style="color:#ffffff;margin-bottom:8px;font-size:0.95rem;">Customer UTRs &amp; Withdrawals (${userWithdrawals.length})</h4>
+                    <div style="max-height:120px;overflow-y:auto;font-size:0.8rem;">
+                        ${userWithdrawals.map(w => `
+                            <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;">
+                                <div>
+                                    <strong>${w.type}</strong> • <span style="font-family:monospace;color:#fbbf24;">${w.utr || w.tokenNumber || '-'}</span>
+                                    <br><small style="color:#94a3b8;">₹${w.amount} • ${formatTimeForLog(w.timestamp)}</small>
+                                </div>
+                                <span class="badge-status-active" style="font-size:0.7rem;">${w.status}</span>
+                            </div>
+                        `).join('') || '<div style="color:#94a3b8;">No UTR or withdrawal submitted yet.</div>'}
+                    </div>
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
                     <h4 style="color:#ffffff;margin-bottom:8px;font-size:0.95rem;">Recent User Activities (${userLogs.length})</h4>
-                    <div style="max-height:150px;overflow-y:auto;font-size:0.8rem;">
-                        ${userLogs.slice(0, 8).map((l: any) => `
+                    <div style="max-height:130px;overflow-y:auto;font-size:0.8rem;">
+                        ${userLogs.slice(0, 8).map(l => `
                             <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;">
                                 <span>${l.details}</span>
                                 <small style="color:#94a3b8;">${formatTimeForLog(l.timestamp)}</small>
@@ -3293,7 +3485,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                 </div>
 
                 <div style="display:flex;gap:10px;margin-top:8px;">
-                    <button type="button" class="btn btn-primary" id="modalSimulateCreditBtn" style="flex:1;">⚡ Trigger Live Credit &amp; SMS</button>
+                    <button type="button" class="btn btn-primary" id="modalSimCreditBtn" style="flex:1;">⚡ Trigger Live Credit &amp; SMS</button>
                     <button type="button" class="btn btn-secondary" id="modalToggleActiveBtn" style="flex:1;">Toggle Activation Status</button>
                 </div>
             </div>
@@ -3301,7 +3493,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
         modal.style.display = 'flex';
 
-        const simCreditBtn = document.getElementById('modalSimulateCreditBtn');
+        const simCreditBtn = document.getElementById('modalSimCreditBtn');
         if (simCreditBtn) {
             simCreditBtn.addEventListener('click', () => {
                 const amt = 2450;
@@ -3323,7 +3515,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         const toggleBtn = document.getElementById('modalToggleActiveBtn');
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => {
-                const curUsers = JSON.parse(localStorage.getItem('users')) || {};
+                const curUsers = JSON.parse(localStorage.getItem('users') || '{}');
                 if (curUsers[username]) {
                     curUsers[username].activated = !curUsers[username].activated;
                     localStorage.setItem('users', JSON.stringify(curUsers));
@@ -3335,7 +3527,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     }
 
     // Helper: format timestamp nicely for log
-    function formatTimeForLog(isoString: string) {
+    function formatTimeForLog(isoString) {
         if (!isoString) return 'Just now';
         try {
             const d = new Date(isoString);
@@ -3350,7 +3542,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     }
 
     // Helper: get colored action type badge
-    function getActionTypeBadge(type: string) {
+    function getActionTypeBadge(type) {
         switch (type) {
             case 'login':
                 return `<span class="badge-action-type badge-action-login">🔑 Login</span>`;
@@ -3378,12 +3570,14 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         }
     }
 
-    // Initial render
-    renderAdminDashboard();
+    // Check Authentication on Page Load
+    checkAdminAuth();
 
     // Live continuous sync interval (every 3 seconds)
     setInterval(() => {
-        renderAdminDashboard();
+        if (sessionStorage.getItem('admin_authenticated') === 'true') {
+            renderAdminDashboard();
+        }
     }, 3000);
 }
 
