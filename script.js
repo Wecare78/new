@@ -191,8 +191,347 @@ function formatNotificationTime(timestamp) {
     }
 }
 
+
 // ============================================
-// IN-APP PAYMENT NOTIFICATION SYSTEM (TRUECALLER)
+// REAL DEVICE NOTIFICATION SOUND (Web Audio API)
+// Authentic Android/SMS incoming chime
+// ============================================
+function playNotificationSound() {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+
+        // Android double-tone payment "ping-chime" (F#5 ~740Hz, then high C#6 ~1108Hz, gentle sine)
+        const now = ctx.currentTime;
+
+        // Tone 1
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(784, now); // G5
+        osc1.frequency.exponentialRampToValueAtTime(880, now + 0.08); // A5
+        gain1.gain.setValueAtTime(0, now);
+        gain1.gain.linearRampToValueAtTime(0.35, now + 0.02);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.18);
+
+        // Tone 2 (Sparkling higher harmonic ping)
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(1318.5, now + 0.09); // E6
+        osc2.frequency.exponentialRampToValueAtTime(1567.98, now + 0.22); // G6
+        gain2.gain.setValueAtTime(0, now + 0.09);
+        gain2.gain.linearRampToValueAtTime(0.4, now + 0.11);
+        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + 0.09);
+        osc2.stop(now + 0.65);
+
+        // Gentle metallic shimmer
+        const osc3 = ctx.createOscillator();
+        const gain3 = ctx.createGain();
+        osc3.type = 'triangle';
+        osc3.frequency.setValueAtTime(2093, now + 0.12); // C7
+        gain3.gain.setValueAtTime(0, now + 0.12);
+        gain3.gain.linearRampToValueAtTime(0.12, now + 0.14);
+        gain3.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+        osc3.connect(gain3);
+        gain3.connect(ctx.destination);
+        osc3.start(now + 0.12);
+        osc3.stop(now + 0.5);
+    } catch (e) {
+        // AudioContext may require user gesture on strict browsers; silent fallback
+    }
+}
+
+// Helper: Generate a unique, recognizable, clean bank SVG crest for ANY custom entered bank
+function generateCustomBankLogo(cleanName, initials, hue) {
+    return `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100" height="100" rx="18" fill="hsl(${hue}, 85%, 38%)"/>
+        <!-- Bank Temple Pillar Emblem -->
+        <path d="M50 18L18 36V43H82V36L50 18Z" fill="#ffffff"/>
+        <rect x="24" y="47" width="9" height="24" rx="2" fill="#ffffff" fill-opacity="0.95"/>
+        <rect x="39" y="47" width="9" height="24" rx="2" fill="#ffffff" fill-opacity="0.95"/>
+        <rect x="52" y="47" width="9" height="24" rx="2" fill="#ffffff" fill-opacity="0.95"/>
+        <rect x="67" y="47" width="9" height="24" rx="2" fill="#ffffff" fill-opacity="0.95"/>
+        <rect x="15" y="74" width="70" height="8" rx="2" fill="#ffffff"/>
+        <!-- Initials badge overlay -->
+        <rect x="25" y="55" width="50" height="18" rx="4" fill="hsl(${hue}, 90%, 26%)"/>
+        <text x="50" y="68" font-size="12" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" letter-spacing="1">${initials}</text>
+    </svg>`;
+}
+
+// Helper: Get Bank Logo SVG and brand info for ANY entered bank
+function getBankBrandInfo(rawBankName) {
+    const raw = (rawBankName || '').trim();
+    const name = raw.toLowerCase();
+    
+    // 1. State Bank of India / SBI
+    if (name.includes('sbi') || name.includes('state bank')) {
+        return {
+            bankName: raw || 'State Bank of India',
+            shortCode: 'SBIINB',
+            color: '#0084ca',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="50" fill="#0084ca"/>
+                <circle cx="50" cy="50" r="28" fill="#ffffff"/>
+                <circle cx="50" cy="50" r="14" fill="#0084ca"/>
+                <rect x="46" y="50" width="8" height="34" fill="#0084ca"/>
+            </svg>`
+        };
+    }
+    // 2. HDFC Bank
+    if (name.includes('hdfc')) {
+        return {
+            bankName: raw || 'HDFC Bank',
+            shortCode: 'HDFCBK',
+            color: '#004c8f',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#004c8f"/>
+                <rect x="36" y="16" width="28" height="68" fill="#ed232a"/>
+                <rect x="16" y="36" width="68" height="28" fill="#ed232a"/>
+                <rect x="26" y="26" width="48" height="48" fill="#ffffff"/>
+                <rect x="38" y="38" width="24" height="24" fill="#004c8f"/>
+            </svg>`
+        };
+    }
+    // 3. ICICI Bank
+    if (name.includes('icici')) {
+        return {
+            bankName: raw || 'ICICI Bank',
+            shortCode: 'ICICIB',
+            color: '#b02a30',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#b02a30"/>
+                <path d="M50 15C30.7 15 15 30.7 15 50C15 69.3 30.7 85 50 85C66.5 85 80.3 73.5 84 58H69.5C66.4 66.2 58.8 72 50 72C37.8 72 28 62.2 28 50C28 37.8 37.8 28 50 28C59.2 28 67 34.2 69.8 42.8H84.3C80.8 26.8 66.8 15 50 15Z" fill="#f58220"/>
+                <circle cx="50" cy="50" r="11" fill="#ffffff"/>
+            </svg>`
+        };
+    }
+    // 4. Axis Bank
+    if (name.includes('axis')) {
+        return {
+            bankName: raw || 'Axis Bank',
+            shortCode: 'AXISBK',
+            color: '#97144d',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#97144d"/>
+                <polygon points="50,18 20,78 40,78 50,56 60,78 80,78" fill="#ffffff"/>
+            </svg>`
+        };
+    }
+    // 5. Punjab National Bank (PNB)
+    if (name.includes('pnb') || name.includes('punjab')) {
+        return {
+            bankName: raw || 'Punjab National Bank',
+            shortCode: 'PNBSMS',
+            color: '#a21d22',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#a21d22"/>
+                <circle cx="50" cy="50" r="28" fill="#ffc20e"/>
+                <circle cx="50" cy="50" r="16" fill="#a21d22"/>
+            </svg>`
+        };
+    }
+    // 6. Bank of Baroda (BOB)
+    if (name.includes('baroda') || name.includes('bob')) {
+        return {
+            bankName: raw || 'Bank of Baroda',
+            shortCode: 'BOBSMS',
+            color: '#f26522',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#f26522"/>
+                <circle cx="42" cy="50" r="24" fill="#ffffff"/>
+                <circle cx="58" cy="50" r="24" fill="#f26522" fill-opacity="0.9"/>
+                <circle cx="58" cy="50" r="14" fill="#ffffff"/>
+            </svg>`
+        };
+    }
+    // 7. Kotak Mahindra Bank
+    if (name.includes('kotak')) {
+        return {
+            bankName: raw || 'Kotak Mahindra Bank',
+            shortCode: 'KOTAKB',
+            color: '#ed1c24',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#ed1c24"/>
+                <path d="M26 30L50 50L26 70H40L64 50L40 30H26Z" fill="#ffffff"/>
+            </svg>`
+        };
+    }
+    // 8. Union Bank of India
+    if (name.includes('union')) {
+        return {
+            bankName: raw || 'Union Bank of India',
+            shortCode: 'UNIONB',
+            color: '#00529b',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#00529b"/>
+                <text x="50" y="62" font-size="34" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="Arial, sans-serif">UBI</text>
+            </svg>`
+        };
+    }
+    // 9. Canara Bank
+    if (name.includes('canara')) {
+        return {
+            bankName: raw || 'Canara Bank',
+            shortCode: 'CANRAB',
+            color: '#0090d0',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#0090d0"/>
+                <polygon points="50,20 78,50 50,80 22,50" fill="#ffd100"/>
+                <polygon points="50,30 68,50 50,70 32,50" fill="#0090d0"/>
+            </svg>`
+        };
+    }
+    // 10. IndusInd Bank
+    if (name.includes('indusind') || name.includes('indus')) {
+        return {
+            bankName: raw || 'IndusInd Bank',
+            shortCode: 'INDUSB',
+            color: '#851b29',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#851b29"/>
+                <text x="50" y="64" font-size="44" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="Arial, sans-serif">I</text>
+            </svg>`
+        };
+    }
+    // 11. Yes Bank
+    if (name.includes('yes bank') || name.includes('yes')) {
+        return {
+            bankName: raw || 'YES Bank',
+            shortCode: 'YESBNK',
+            color: '#003366',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#003366"/>
+                <path d="M25 45L45 65L78 30" stroke="#ed1c24" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>`
+        };
+    }
+    // 12. Paytm Payments Bank
+    if (name.includes('paytm')) {
+        return {
+            bankName: raw || 'Paytm Payments Bank',
+            shortCode: 'PAYTMB',
+            color: '#002e6e',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#002e6e"/>
+                <text x="50" y="60" font-size="28" font-weight="900" fill="#00b9f1" text-anchor="middle" font-family="Arial, sans-serif">paytm</text>
+            </svg>`
+        };
+    }
+    // 13. Airtel Payments Bank
+    if (name.includes('airtel')) {
+        return {
+            bankName: raw || 'Airtel Payments Bank',
+            shortCode: 'AIRTEL',
+            color: '#e40000',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#e40000"/>
+                <circle cx="50" cy="50" r="24" fill="#ffffff"/>
+                <circle cx="50" cy="50" r="14" fill="#e40000"/>
+            </svg>`
+        };
+    }
+    // 14. Indian Bank / Allahabad Bank
+    if (name.includes('indian bank') || name.includes('allahabad')) {
+        return {
+            bankName: raw || 'Indian Bank',
+            shortCode: 'INDBNK',
+            color: '#1a3b8b',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#1a3b8b"/>
+                <circle cx="50" cy="50" r="28" fill="#f58220"/>
+                <rect x="42" y="32" width="16" height="36" fill="#ffffff"/>
+            </svg>`
+        };
+    }
+    // 15. Central Bank of India
+    if (name.includes('central bank') || name.includes('cbi')) {
+        return {
+            bankName: raw || 'Central Bank of India',
+            shortCode: 'CBIN',
+            color: '#a71930',
+            bgColor: '#ffffff',
+            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100" height="100" rx="16" fill="#a71930"/>
+                <polygon points="50,22 75,74 25,74" fill="#ffffff"/>
+            </svg>`
+        };
+    }
+
+    // Dynamic Generator for ANY custom entered bank name (e.g., "Bank of India", "IDBI", "Federal Bank", "J&K Bank", "Citibank", etc.)
+    const cleanName = raw || 'Bank Account';
+    // Calculate 2-3 char initials
+    const words = cleanName.split(/\s+/).filter(Boolean);
+    let initials = '';
+    if (words.length >= 2) {
+        initials = (words[0][0] + words[1][0] + (words[2] ? words[2][0] : '')).toUpperCase().slice(0, 3);
+    } else {
+        initials = cleanName.slice(0, 3).toUpperCase();
+    }
+    
+    // Hash bank name to produce stable pleasant color hue
+    let hash = 0;
+    for (let i = 0; i < cleanName.length; i++) {
+        hash = cleanName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash % 360);
+    const shortCode = `${initials.padEnd(3, 'X')}BNK`;
+
+    return {
+        bankName: cleanName,
+        shortCode: shortCode,
+        color: `hsl(${hue}, 85%, 38%)`,
+        bgColor: '#ffffff',
+        logoSvg: generateCustomBankLogo(cleanName, initials, hue)
+    };
+}
+
+// Format full SMS timestamp e.g. "12-Nov-26 3:45 PM"
+function formatSmsDateTime(timestamp) {
+    try {
+        const d = timestamp ? new Date(timestamp) : new Date();
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        const day = String(d.getDate()).padStart(2, '0');
+        const mon = months[d.getMonth()];
+        const yr = String(d.getFullYear()).slice(-2);
+        const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+        return `${day}-${mon}-${yr} ${timeStr}`;
+    } catch (e) {
+        return 'Today';
+    }
+}
+
+// Generate realistic Indian Bank SMS sender code like "VM-SBIINB", "AX-HDFCBK"
+function getRealisticSenderCode(shortCode) {
+    const prefixes = ['VM', 'VK', 'AD', 'AX', 'BP', 'CP', 'JD'];
+    const p = prefixes[Math.floor(Math.random() * prefixes.length)];
+    return `${p}-${shortCode}`;
+}
+
+// ============================================
+// IN-APP PAYMENT NOTIFICATION SYSTEM (TRUECALLER REAL BANK SMS)
 // ============================================
 const notifiedTxnIds = new Set();
 let currentNotificationTimeout = null;
@@ -212,10 +551,23 @@ function showPaymentNotification(transaction) {
     const notificationAmount = transaction.amount;
     const notificationAccount = transaction.accountNumber;
     const notificationTime = transaction.timestamp;
+    const currentUsername = StorageManager.getLoggedInUser();
+    const accountDetails = StorageManager.getAccountDetails(currentUsername) || {};
+    // Priority: transaction.bankName -> transaction.accountName -> accountDetails.bankName
+    const bankName = transaction.bankName || transaction.accountName || accountDetails.bankName || 'State Bank of India';
+    const balanceKey = `balance_${currentUsername}`;
+    const liveBal = parseFloat(localStorage.getItem(balanceKey)) || notificationAmount;
 
     const formattedAmount = Number(notificationAmount).toLocaleString('en-IN');
+    const formattedBalance = Number(liveBal).toLocaleString('en-IN');
     const maskedAcc = maskAccountNumber(notificationAccount);
-    const timeFormatted = formatNotificationTime(notificationTime);
+    const last4 = maskedAcc.slice(-4);
+    const smsDateTime = formatSmsDateTime(notificationTime);
+
+    // Get authentic bank brand info (logo, sender code, display name)
+    const brand = getBankBrandInfo(bankName);
+    const senderCode = getRealisticSenderCode(brand.shortCode);
+    const refUtr = `${Math.floor(100000000000 + Math.random() * 900000000000)}`;
 
     // Get or create notification container
     let container = document.getElementById('paymentNotificationContainer');
@@ -246,33 +598,103 @@ function showPaymentNotification(transaction) {
         container.appendChild(notifCard);
     }
 
-    // Render modern Android Truecaller payment alert
+    // Realistic Truecaller Smart SMS Banking alert markup with official bank identity
     notifCard.innerHTML = `
+        <!-- Top App Bar with Truecaller Official Style Branding -->
         <div class="tc-notif-header">
             <div class="tc-notif-app-info">
-                <div class="tc-app-icon" aria-hidden="true">
+                <div class="tc-app-icon" aria-hidden="true" title="Truecaller Smart SMS">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect width="24" height="24" rx="6" fill="#0087FF"/>
                         <path d="M7.4 6.5C7.0 6.5 6.6 6.7 6.3 7.0C5.6 7.7 5.2 8.7 5.2 9.8C5.2 13.5 8.2 16.5 11.9 16.5C13.0 16.5 14.0 16.1 14.7 15.4C15.0 15.1 15.2 14.7 15.2 14.3C15.2 13.9 14.9 13.6 14.6 13.4L12.7 12.3C12.4 12.1 12.0 12.1 11.7 12.3L10.9 13.0C10.8 13.1 10.6 13.1 10.4 13.0C9.6 12.5 8.9 11.8 8.4 11.0C8.3 10.8 8.3 10.6 8.4 10.5L9.1 9.7C9.3 9.4 9.3 9.0 9.1 8.7L8.0 6.8C7.8 6.5 7.5 6.5 7.4 6.5Z" fill="white"/>
                     </svg>
                 </div>
-                <span class="tc-app-name">TRUECALLER</span>
-                <span class="tc-separator">•</span>
-                <span class="tc-header-time">${timeFormatted}</span>
+                <div class="tc-app-meta">
+                    <div class="tc-app-name-row">
+                        <span class="tc-app-name">TRUECALLER</span>
+                        <span class="tc-verified-badge" title="Verified Truecaller SMS">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" fill="#0087FF"/>
+                                <path d="M7.5 12L10.5 15L16.5 9" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Verified
+                        </span>
+                        <span class="tc-dot-separator">•</span>
+                        <span class="tc-header-time">now</span>
+                    </div>
+                </div>
             </div>
             <button type="button" class="tc-close-btn" id="tcCloseBtn" aria-label="Dismiss notification">&times;</button>
         </div>
 
-        <div class="tc-notif-body">
-            <div class="tc-badge-row">
-                <span class="tc-check-icon">✓</span>
-                <span class="tc-title">Payment received</span>
+        <!-- Bank Sender ID Header Row (Like Real Android SMS Notification) -->
+        <div class="tc-bank-sender-row">
+            <div class="tc-bank-logo-wrap" style="box-shadow: 0 2px 10px ${brand.color}40;">
+                ${brand.logoSvg}
             </div>
-            <div class="tc-amount">₹${formattedAmount} credited</div>
-            <div class="tc-account-row">
-                <span>Account <span class="tc-account-pill">${maskedAcc}</span></span>
+            <div class="tc-bank-sender-info">
+                <div class="tc-bank-name-line">
+                    <span class="tc-bank-title">${brand.bankName}</span>
+                    <span class="tc-sender-badge">${senderCode}</span>
+                </div>
+                <span class="tc-bank-subtext">Official Banking Alert • SMS</span>
             </div>
-            <div class="tc-footer-time">${timeFormatted}</div>
+            <div class="tc-smart-tag">
+                <span>SMART SMS</span>
+            </div>
+        </div>
+
+        <!-- Smart Transaction Card Body -->
+        <div class="tc-smart-bubble">
+            <div class="tc-amount-headline">
+                <div class="tc-credit-tag">
+                    <span class="tc-credit-dot"></span>
+                    <span>CREDITED</span>
+                </div>
+                <div class="tc-amount-val">+₹${formattedAmount}</div>
+            </div>
+
+            <!-- Authentic 100% Real Bank SMS Message Body -->
+            <div class="tc-sms-body">
+                Dear Customer, Your A/C <strong>${maskedAcc}</strong> is <strong>credited</strong> by <strong>₹${formattedAmount}</strong> on <strong>${smsDateTime}</strong> by UPI/IMPS transfer. Ref/UTR: <span class="tc-utr-code">${refUtr}</span>. Avail Bal: ₹${formattedBalance}. -${brand.bankName}
+            </div>
+
+            <!-- Key Metric Chips (Account & Ref) -->
+            <div class="tc-details-grid">
+                <div class="tc-detail-col">
+                    <span class="tc-detail-lbl">Account</span>
+                    <span class="tc-detail-val">•••• ${last4}</span>
+                </div>
+                <div class="tc-detail-col">
+                    <span class="tc-detail-lbl">Reference / UTR</span>
+                    <span class="tc-detail-val">${refUtr.slice(0, 8)}...</span>
+                </div>
+                <div class="tc-detail-col">
+                    <span class="tc-detail-lbl">Avail Bal</span>
+                    <span class="tc-detail-val tc-bal-val">₹${formattedBalance}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Realistic Android Quick Actions (Truecaller SMS style) -->
+        <div class="tc-quick-actions">
+            <button type="button" class="tc-action-btn tc-action-primary" id="tcViewDetailsBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <span>View Details</span>
+            </button>
+            <button type="button" class="tc-action-btn" id="tcCopyUtrBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>Copy UTR</span>
+            </button>
+            <button type="button" class="tc-action-btn" id="tcDismissBtn">
+                <span>Dismiss</span>
+            </button>
         </div>
     `;
 
@@ -285,6 +707,50 @@ function showPaymentNotification(transaction) {
         });
     }
 
+    const dismissActionBtn = notifCard.querySelector('#tcDismissBtn');
+    if (dismissActionBtn) {
+        dismissActionBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            dismissPaymentNotification();
+        });
+    }
+
+    const copyUtrBtn = notifCard.querySelector('#tcCopyUtrBtn');
+    if (copyUtrBtn) {
+        copyUtrBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                if (navigator.clipboard) {
+                    await navigator.clipboard.writeText(refUtr);
+                }
+            } catch (err) {}
+            copyUtrBtn.innerHTML = `<span>✓ Copied</span>`;
+            setTimeout(() => {
+                if (copyUtrBtn) {
+                    copyUtrBtn.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span>Copy UTR</span>`;
+                }
+            }, 1800);
+        });
+    }
+
+    const viewDetailsBtn = notifCard.querySelector('#tcViewDetailsBtn');
+    if (viewDetailsBtn) {
+        viewDetailsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Scroll to recent credits feed
+            const txFeed = document.getElementById('transactionFeed') || document.getElementById('runningAccountSection');
+            if (txFeed) {
+                txFeed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            dismissPaymentNotification();
+        });
+    }
+
     // Trigger enter animation: slide down from top
     notifCard.classList.remove('tc-notif-hiding');
     void notifCard.offsetWidth; // Force layout reflow
@@ -292,10 +758,18 @@ function showPaymentNotification(transaction) {
     notifCard.classList.add('tc-pulse');
     setTimeout(() => notifCard.classList.remove('tc-pulse'), 320);
 
-    // Keep visible for ~4.2 seconds, then smoothly slide out
+    // Play authentic device incoming payment SMS notification chime & haptic vibration
+    playNotificationSound();
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+            navigator.vibrate([100, 60, 140]);
+        } catch (e) {}
+    }
+
+    // Keep visible for ~6 seconds so user can comfortably read real SMS, then smoothly slide out
     currentNotificationTimeout = setTimeout(() => {
         dismissPaymentNotification();
-    }, 4200);
+    }, 6000);
 }
 
 function dismissPaymentNotification() {
@@ -1316,12 +1790,20 @@ if (document.getElementById('welcomeMessage')) {
             updateBalanceUI();
             updateTopStatsUI();
 
+            // Read latest account details saved by user in Step 1
+            const currentAccDetails = StorageManager.getAccountDetails(username) || {};
+            const resolvedBankName = currentAccDetails.bankName || accountDetails.bankName || 'State Bank of India';
+            const resolvedAccountHolder = currentAccDetails.accountHolder || accountDetails.accountHolder || '';
+
             // 3. THEN trigger the Truecaller payment notification with the EXACT SAME transaction data
             const transactionObj = {
                 id: txnId,
                 amount: amount,
                 timestamp: timestamp,
-                accountNumber: acctNum || '1234567890123456'
+                accountNumber: acctNum || '1234567890123456',
+                bankName: resolvedBankName,
+                accountName: resolvedBankName,
+                accountHolder: resolvedAccountHolder
             };
             showPaymentNotification(transactionObj);
 

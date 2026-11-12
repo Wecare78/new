@@ -1288,8 +1288,8 @@ body::before {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
+    margin-bottom: 9px;
+    padding-bottom: 7px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -1304,42 +1304,69 @@ body::before {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 7px;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
     overflow: hidden;
     flex-shrink: 0;
-    box-shadow: 0 2px 10px rgba(0, 135, 255, 0.45);
+    box-shadow: 0 2px 8px rgba(0, 135, 255, 0.45);
+}
+
+.tc-app-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.tc-app-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .tc-app-name {
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     font-weight: 800;
-    letter-spacing: 0.09em;
+    letter-spacing: 0.08em;
     color: #4da6ff;
     text-transform: uppercase;
 }
 
-.tc-separator {
+.tc-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(0, 135, 255, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 1px 6px;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+}
+
+.tc-dot-separator {
     color: rgba(148, 163, 184, 0.6);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
 }
 
 .tc-header-time {
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     color: var(--text-secondary);
     font-weight: 500;
 }
 
 .tc-close-btn {
-    width: 28px;
-    height: 28px;
-    min-height: 28px;
+    width: 26px;
+    height: 26px;
+    min-height: 26px;
     border-radius: 50%;
     border: none;
     background: rgba(255, 255, 255, 0.06);
     color: var(--text-secondary);
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     line-height: 1;
     display: flex;
     align-items: center;
@@ -1356,78 +1383,241 @@ body::before {
     transform: scale(1.08);
 }
 
-/* Notification Body */
-.tc-notif-body {
+/* ==================================================
+   BANK SENDER HEADER ROW (Real Android SMS Identity)
+   ================================================== */
+.tc-bank-sender-row {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    gap: 11px;
+    padding: 6px 4px 10px;
 }
 
-.tc-badge-row {
+.tc-bank-logo-wrap {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    padding: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.tc-bank-sender-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.tc-bank-name-line {
     display: flex;
     align-items: center;
     gap: 7px;
+    flex-wrap: wrap;
 }
 
-.tc-check-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #10b981;
-    color: white;
-    font-size: 0.72rem;
+.tc-bank-title {
+    font-size: 0.95rem;
     font-weight: 800;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.45);
+    color: #ffffff;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+}
+
+.tc-sender-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    letter-spacing: 0.05em;
+}
+
+.tc-bank-subtext {
+    display: block;
+    font-size: 0.69rem;
+    color: #94a3b8;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
+.tc-smart-tag {
     flex-shrink: 0;
 }
 
-.tc-title {
-    font-size: 0.94rem;
-    font-weight: 700;
-    color: #f8fafc;
-    letter-spacing: -0.01em;
-}
-
-.tc-amount {
-    font-size: 1.38rem;
+.tc-smart-tag span {
+    font-size: 0.62rem;
     font-weight: 800;
-    color: #4ade80;
-    letter-spacing: -0.02em;
-    margin: 3px 0 2px;
-    text-shadow: 0 2px 12px rgba(34, 197, 94, 0.3);
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    padding: 3px 7px;
+    border-radius: 6px;
+    text-transform: uppercase;
 }
 
-.tc-account-row {
+/* ==================================================
+   SMART BUBBLE / CARD BODY
+   ================================================== */
+.tc-smart-bubble {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-left: 3.5px solid #10b981;
+    border-radius: 12px;
+    padding: 11px 13px;
+    margin-bottom: 10px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.tc-amount-headline {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 0.85rem;
-    color: #94a3b8;
-    font-weight: 500;
+    margin-bottom: 7px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
 }
 
-.tc-account-pill {
-    background: rgba(255, 255, 255, 0.06);
-    padding: 2px 8px;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    font-family: monospace;
-    letter-spacing: 0.05em;
-    color: #e2e8f0;
-}
-
-.tc-footer-time {
-    margin-top: 4px;
+.tc-credit-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 0.72rem;
-    color: #64748b;
-    font-weight: 500;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #34d399;
+    text-transform: uppercase;
+}
+
+.tc-credit-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+    animation: statusPulse 1.8s infinite;
+}
+
+.tc-amount-val {
+    font-size: 1.42rem;
+    font-weight: 900;
+    color: #4ade80;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 14px rgba(34, 197, 94, 0.35);
+}
+
+.tc-sms-body {
+    font-size: 0.79rem;
+    line-height: 1.48;
+    color: #cbd5e1;
+    margin-bottom: 10px;
+    word-break: break-word;
+}
+
+.tc-sms-body strong {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.tc-utr-code {
+    font-family: monospace;
+    font-weight: 700;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.1);
+    padding: 1px 4px;
+    border-radius: 4px;
+}
+
+.tc-details-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tc-detail-col {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.tc-detail-lbl {
+    font-size: 0.63rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+
+.tc-detail-val {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    font-family: monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tc-detail-val.tc-bal-val {
+    color: #38bdf8;
+    font-family: var(--font-family);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ==================================================
+   QUICK ACTION BUTTONS (Real Android SMS style)
+   ================================================== */
+.tc-quick-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.tc-action-btn {
+    flex: 1;
+    min-height: 33px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: all 0.2s ease;
+    text-transform: none;
+}
+
+.tc-action-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.tc-action-btn.tc-action-primary {
+    background: linear-gradient(135deg, rgba(0, 135, 255, 0.25), rgba(56, 189, 248, 0.2));
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+}
+
+.tc-action-btn.tc-action-primary:hover {
+    background: linear-gradient(135deg, rgba(0, 135, 255, 0.35), rgba(56, 189, 248, 0.3));
+    box-shadow: 0 4px 12px rgba(0, 135, 255, 0.2);
 }
 
 /* Tactile pulse on new incoming transaction */
