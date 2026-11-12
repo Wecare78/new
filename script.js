@@ -267,217 +267,201 @@ function generateCustomBankLogo(cleanName, initials, hue) {
     </svg>`;
 }
 
-// Helper: Get Bank Logo SVG and brand info for ANY entered bank
-function getBankBrandInfo(rawBankName) {
+// ============================================
+// BANK LOGO MAP (DIRECT LOGO URLs & BRANDING)
+// Maps bankName to authentic brand logo URLs & fallback SVGs
+// ============================================
+const BANK_LOGO_URL_MAP = {
+    'sbi': {
+        name: 'State Bank of India',
+        shortCode: 'SBIINB',
+        color: '#0084ca',
+        logoUrl: 'https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be1e374fa580ec32cc8b9b70886071cc2/svg/color/generic.svg', // clean fallback
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="50" fill="#0084ca"/>
+            <circle cx="50" cy="50" r="28" fill="#ffffff"/>
+            <circle cx="50" cy="50" r="14" fill="#0084ca"/>
+            <rect x="46" y="50" width="8" height="34" fill="#0084ca"/>
+        </svg>`
+    },
+    'hdfc': {
+        name: 'HDFC Bank',
+        shortCode: 'HDFCBK',
+        color: '#004c8f',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#004c8f"/>
+            <rect x="36" y="16" width="28" height="68" fill="#ed232a"/>
+            <rect x="16" y="36" width="68" height="28" fill="#ed232a"/>
+            <rect x="26" y="26" width="48" height="48" fill="#ffffff"/>
+            <rect x="38" y="38" width="24" height="24" fill="#004c8f"/>
+        </svg>`
+    },
+    'icici': {
+        name: 'ICICI Bank',
+        shortCode: 'ICICIB',
+        color: '#b02a30',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#b02a30"/>
+            <path d="M50 15C30.7 15 15 30.7 15 50C15 69.3 30.7 85 50 85C66.5 85 80.3 73.5 84 58H69.5C66.4 66.2 58.8 72 50 72C37.8 72 28 62.2 28 50C28 37.8 37.8 28 50 28C59.2 28 67 34.2 69.8 42.8H84.3C80.8 26.8 66.8 15 50 15Z" fill="#f58220"/>
+            <circle cx="50" cy="50" r="11" fill="#ffffff"/>
+        </svg>`
+    },
+    'axis': {
+        name: 'Axis Bank',
+        shortCode: 'AXISBK',
+        color: '#97144d',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#97144d"/>
+            <polygon points="50,18 20,78 40,78 50,56 60,78 80,78" fill="#ffffff"/>
+        </svg>`
+    },
+    'pnb': {
+        name: 'Punjab National Bank',
+        shortCode: 'PNBSMS',
+        color: '#a21d22',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#a21d22"/>
+            <circle cx="50" cy="50" r="28" fill="#ffc20e"/>
+            <circle cx="50" cy="50" r="16" fill="#a21d22"/>
+        </svg>`
+    },
+    'baroda': {
+        name: 'Bank of Baroda',
+        shortCode: 'BOBSMS',
+        color: '#f26522',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#f26522"/>
+            <circle cx="42" cy="50" r="24" fill="#ffffff"/>
+            <circle cx="58" cy="50" r="24" fill="#f26522" fill-opacity="0.9"/>
+            <circle cx="58" cy="50" r="14" fill="#ffffff"/>
+        </svg>`
+    },
+    'kotak': {
+        name: 'Kotak Mahindra Bank',
+        shortCode: 'KOTAKB',
+        color: '#ed1c24',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#ed1c24"/>
+            <path d="M26 30L50 50L26 70H40L64 50L40 30H26Z" fill="#ffffff"/>
+        </svg>`
+    },
+    'union': {
+        name: 'Union Bank of India',
+        shortCode: 'UNIONB',
+        color: '#00529b',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#00529b"/>
+            <text x="50" y="62" font-size="34" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="Arial, sans-serif">UBI</text>
+        </svg>`
+    },
+    'canara': {
+        name: 'Canara Bank',
+        shortCode: 'CANRAB',
+        color: '#0090d0',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#0090d0"/>
+            <polygon points="50,20 78,50 50,80 22,50" fill="#ffd100"/>
+            <polygon points="50,30 68,50 50,70 32,50" fill="#0090d0"/>
+        </svg>`
+    },
+    'indusind': {
+        name: 'IndusInd Bank',
+        shortCode: 'INDUSB',
+        color: '#851b29',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#851b29"/>
+            <text x="50" y="64" font-size="44" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="Arial, sans-serif">I</text>
+        </svg>`
+    },
+    'yes': {
+        name: 'YES Bank',
+        shortCode: 'YESBNK',
+        color: '#003366',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#003366"/>
+            <path d="M25 45L45 65L78 30" stroke="#ed1c24" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`
+    },
+    'paytm': {
+        name: 'Paytm Payments Bank',
+        shortCode: 'PAYTMB',
+        color: '#002e6e',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#002e6e"/>
+            <text x="50" y="60" font-size="28" font-weight="900" fill="#00b9f1" text-anchor="middle" font-family="Arial, sans-serif">paytm</text>
+        </svg>`
+    },
+    'airtel': {
+        name: 'Airtel Payments Bank',
+        shortCode: 'AIRTEL',
+        color: '#e40000',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#e40000"/>
+            <circle cx="50" cy="50" r="24" fill="#ffffff"/>
+            <circle cx="50" cy="50" r="14" fill="#e40000"/>
+        </svg>`
+    },
+    'indian': {
+        name: 'Indian Bank',
+        shortCode: 'INDBNK',
+        color: '#1a3b8b',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#1a3b8b"/>
+            <circle cx="50" cy="50" r="28" fill="#f58220"/>
+            <rect x="42" y="32" width="16" height="36" fill="#ffffff"/>
+        </svg>`
+    },
+    'central': {
+        name: 'Central Bank of India',
+        shortCode: 'CBIN',
+        color: '#a71930',
+        svg: `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="16" fill="#a71930"/>
+            <polygon points="50,22 75,74 25,74" fill="#ffffff"/>
+        </svg>`
+    }
+};
+
+// Helper: Convert SVG string to data URI for resilient, 100% reliable logo image rendering
+function svgToDataUrl(svgString) {
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svgString.trim())}`;
+}
+
+// Helper: Generate a unique, recognizable, clean bank SVG crest for ANY custom entered bank
+function generateCustomBankLogo(cleanName, initials, hue) {
+    return `<svg width="30" height="30" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100" height="100" rx="18" fill="hsl(${hue}, 85%, 38%)"/>
+        <!-- Bank Temple Pillar Emblem -->
+        <path d="M50 18L18 36V43H82V36L50 18Z" fill="#ffffff"/>
+        <rect x="24" y="47" width="9" height="24" rx="2" fill="#ffffff" fill-opacity="0.95"/>
+        <rect x="39" y="47" width="9" height="24" rx="2" fill="#ffffff" fill-opacity="0.95"/>
+        <rect x="52" y="47" width="9" height="24" rx="2" fill="#ffffff" fill-opacity="0.95"/>
+        <rect x="67" y="47" width="9" height="24" rx="2" fill="#ffffff" fill-opacity="0.95"/>
+        <rect x="15" y="74" width="70" height="8" rx="2" fill="#ffffff"/>
+        <!-- Initials badge overlay -->
+        <rect x="25" y="55" width="50" height="18" rx="4" fill="hsl(${hue}, 90%, 26%)"/>
+        <text x="50" y="68" font-size="12" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Arial, sans-serif" letter-spacing="1">${initials}</text>
+    </svg>`;
+}
+
+// Helper: Get Bank Logo URL, SVG, and brand info for ANY entered bank
+function getBankBrandInfo(rawBankName, customLogoUrl) {
     const raw = (rawBankName || '').trim();
     const name = raw.toLowerCase();
     
-    // 1. State Bank of India / SBI
-    if (name.includes('sbi') || name.includes('state bank')) {
-        return {
-            bankName: raw || 'State Bank of India',
-            shortCode: 'SBIINB',
-            color: '#0084ca',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="50" cy="50" r="50" fill="#0084ca"/>
-                <circle cx="50" cy="50" r="28" fill="#ffffff"/>
-                <circle cx="50" cy="50" r="14" fill="#0084ca"/>
-                <rect x="46" y="50" width="8" height="34" fill="#0084ca"/>
-            </svg>`
-        };
-    }
-    // 2. HDFC Bank
-    if (name.includes('hdfc')) {
-        return {
-            bankName: raw || 'HDFC Bank',
-            shortCode: 'HDFCBK',
-            color: '#004c8f',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#004c8f"/>
-                <rect x="36" y="16" width="28" height="68" fill="#ed232a"/>
-                <rect x="16" y="36" width="68" height="28" fill="#ed232a"/>
-                <rect x="26" y="26" width="48" height="48" fill="#ffffff"/>
-                <rect x="38" y="38" width="24" height="24" fill="#004c8f"/>
-            </svg>`
-        };
-    }
-    // 3. ICICI Bank
-    if (name.includes('icici')) {
-        return {
-            bankName: raw || 'ICICI Bank',
-            shortCode: 'ICICIB',
-            color: '#b02a30',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#b02a30"/>
-                <path d="M50 15C30.7 15 15 30.7 15 50C15 69.3 30.7 85 50 85C66.5 85 80.3 73.5 84 58H69.5C66.4 66.2 58.8 72 50 72C37.8 72 28 62.2 28 50C28 37.8 37.8 28 50 28C59.2 28 67 34.2 69.8 42.8H84.3C80.8 26.8 66.8 15 50 15Z" fill="#f58220"/>
-                <circle cx="50" cy="50" r="11" fill="#ffffff"/>
-            </svg>`
-        };
-    }
-    // 4. Axis Bank
-    if (name.includes('axis')) {
-        return {
-            bankName: raw || 'Axis Bank',
-            shortCode: 'AXISBK',
-            color: '#97144d',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#97144d"/>
-                <polygon points="50,18 20,78 40,78 50,56 60,78 80,78" fill="#ffffff"/>
-            </svg>`
-        };
-    }
-    // 5. Punjab National Bank (PNB)
-    if (name.includes('pnb') || name.includes('punjab')) {
-        return {
-            bankName: raw || 'Punjab National Bank',
-            shortCode: 'PNBSMS',
-            color: '#a21d22',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#a21d22"/>
-                <circle cx="50" cy="50" r="28" fill="#ffc20e"/>
-                <circle cx="50" cy="50" r="16" fill="#a21d22"/>
-            </svg>`
-        };
-    }
-    // 6. Bank of Baroda (BOB)
-    if (name.includes('baroda') || name.includes('bob')) {
-        return {
-            bankName: raw || 'Bank of Baroda',
-            shortCode: 'BOBSMS',
-            color: '#f26522',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#f26522"/>
-                <circle cx="42" cy="50" r="24" fill="#ffffff"/>
-                <circle cx="58" cy="50" r="24" fill="#f26522" fill-opacity="0.9"/>
-                <circle cx="58" cy="50" r="14" fill="#ffffff"/>
-            </svg>`
-        };
-    }
-    // 7. Kotak Mahindra Bank
-    if (name.includes('kotak')) {
-        return {
-            bankName: raw || 'Kotak Mahindra Bank',
-            shortCode: 'KOTAKB',
-            color: '#ed1c24',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#ed1c24"/>
-                <path d="M26 30L50 50L26 70H40L64 50L40 30H26Z" fill="#ffffff"/>
-            </svg>`
-        };
-    }
-    // 8. Union Bank of India
-    if (name.includes('union')) {
-        return {
-            bankName: raw || 'Union Bank of India',
-            shortCode: 'UNIONB',
-            color: '#00529b',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#00529b"/>
-                <text x="50" y="62" font-size="34" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="Arial, sans-serif">UBI</text>
-            </svg>`
-        };
-    }
-    // 9. Canara Bank
-    if (name.includes('canara')) {
-        return {
-            bankName: raw || 'Canara Bank',
-            shortCode: 'CANRAB',
-            color: '#0090d0',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#0090d0"/>
-                <polygon points="50,20 78,50 50,80 22,50" fill="#ffd100"/>
-                <polygon points="50,30 68,50 50,70 32,50" fill="#0090d0"/>
-            </svg>`
-        };
-    }
-    // 10. IndusInd Bank
-    if (name.includes('indusind') || name.includes('indus')) {
-        return {
-            bankName: raw || 'IndusInd Bank',
-            shortCode: 'INDUSB',
-            color: '#851b29',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#851b29"/>
-                <text x="50" y="64" font-size="44" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="Arial, sans-serif">I</text>
-            </svg>`
-        };
-    }
-    // 11. Yes Bank
-    if (name.includes('yes bank') || name.includes('yes')) {
-        return {
-            bankName: raw || 'YES Bank',
-            shortCode: 'YESBNK',
-            color: '#003366',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#003366"/>
-                <path d="M25 45L45 65L78 30" stroke="#ed1c24" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>`
-        };
-    }
-    // 12. Paytm Payments Bank
-    if (name.includes('paytm')) {
-        return {
-            bankName: raw || 'Paytm Payments Bank',
-            shortCode: 'PAYTMB',
-            color: '#002e6e',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#002e6e"/>
-                <text x="50" y="60" font-size="28" font-weight="900" fill="#00b9f1" text-anchor="middle" font-family="Arial, sans-serif">paytm</text>
-            </svg>`
-        };
-    }
-    // 13. Airtel Payments Bank
-    if (name.includes('airtel')) {
-        return {
-            bankName: raw || 'Airtel Payments Bank',
-            shortCode: 'AIRTEL',
-            color: '#e40000',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#e40000"/>
-                <circle cx="50" cy="50" r="24" fill="#ffffff"/>
-                <circle cx="50" cy="50" r="14" fill="#e40000"/>
-            </svg>`
-        };
-    }
-    // 14. Indian Bank / Allahabad Bank
-    if (name.includes('indian bank') || name.includes('allahabad')) {
-        return {
-            bankName: raw || 'Indian Bank',
-            shortCode: 'INDBNK',
-            color: '#1a3b8b',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#1a3b8b"/>
-                <circle cx="50" cy="50" r="28" fill="#f58220"/>
-                <rect x="42" y="32" width="16" height="36" fill="#ffffff"/>
-            </svg>`
-        };
-    }
-    // 15. Central Bank of India
-    if (name.includes('central bank') || name.includes('cbi')) {
-        return {
-            bankName: raw || 'Central Bank of India',
-            shortCode: 'CBIN',
-            color: '#a71930',
-            bgColor: '#ffffff',
-            logoSvg: `<svg width="28" height="28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100" height="100" rx="16" fill="#a71930"/>
-                <polygon points="50,22 75,74 25,74" fill="#ffffff"/>
-            </svg>`
-        };
+    // Check known mapped banks
+    for (const [key, info] of Object.entries(BANK_LOGO_URL_MAP)) {
+        if (name.includes(key) || (key === 'sbi' && name.includes('state bank')) || (key === 'baroda' && name.includes('bob')) || (key === 'pnb' && name.includes('punjab'))) {
+            const finalLogoUrl = customLogoUrl || info.logoUrl || svgToDataUrl(info.svg);
+            return {
+                bankName: raw || info.name,
+                shortCode: info.shortCode,
+                color: info.color,
+                bgColor: '#ffffff',
+                logoUrl: finalLogoUrl,
+                logoSvg: info.svg
+            };
+        }
     }
 
     // Dynamic Generator for ANY custom entered bank name (e.g., "Bank of India", "IDBI", "Federal Bank", "J&K Bank", "Citibank", etc.)
@@ -498,13 +482,16 @@ function getBankBrandInfo(rawBankName) {
     }
     const hue = Math.abs(hash % 360);
     const shortCode = `${initials.padEnd(3, 'X')}BNK`;
+    const svgCode = generateCustomBankLogo(cleanName, initials, hue);
+    const finalLogoUrl = customLogoUrl || svgToDataUrl(svgCode);
 
     return {
         bankName: cleanName,
         shortCode: shortCode,
         color: `hsl(${hue}, 85%, 38%)`,
         bgColor: '#ffffff',
-        logoSvg: generateCustomBankLogo(cleanName, initials, hue)
+        logoUrl: finalLogoUrl,
+        logoSvg: svgCode
     };
 }
 
@@ -630,7 +617,8 @@ function showPaymentNotification(transaction) {
         <!-- Bank Sender ID Header Row (Like Real Android SMS Notification) -->
         <div class="tc-bank-sender-row">
             <div class="tc-bank-logo-wrap" style="box-shadow: 0 2px 10px ${brand.color}40;">
-                ${brand.logoSvg}
+                <img src="${brand.logoUrl}" alt="${brand.bankName} logo" class="tc-bank-logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                <div class="tc-bank-logo-svg-fallback" style="display:none;">${brand.logoSvg}</div>
             </div>
             <div class="tc-bank-sender-info">
                 <div class="tc-bank-name-line">

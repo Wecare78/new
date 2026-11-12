@@ -1407,6 +1407,21 @@ body::before {
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
+.tc-bank-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.tc-bank-logo-svg-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
 .tc-bank-sender-info {
     flex: 1;
     min-width: 0;
