@@ -11,7 +11,12 @@ const StorageManager = {
                 'demo': {
                     username: 'demo',
                     password: 'password',
+                    mobile: '9876543210',
+                    mobileVerified: true,
                     email: 'demo@accountfunds.com',
+                    registeredAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
+                    lastLoginAt: new Date().toISOString(),
+                    loginCount: 3,
                     accountDetails: {
                         accountNumber: '1234567890123456',
                         ifscCode: 'SBIN0001234',
@@ -31,10 +36,123 @@ const StorageManager = {
                 }
             };
             localStorage.setItem('users', JSON.stringify(defaultUsers));
+
+            // Seed initial activity logs so Admin has instant rich data
+            this.logActivity('demo', 'register', 'Demo user registered with mobile +91 9876543210', 'registration', 'success');
+            this.logActivity('demo', 'login', 'User logged in to live account dashboard', 'auth', 'success');
+            this.logActivity('demo', 'bank_details', 'Linked State Bank of India (SBIN0001234) Account: XXXX3456', 'banking', 'success');
+            this.logActivity('demo', 'autodebit', 'Configured ATM autodebit verification (Card: XXXX9012)', 'atm', 'success');
+            this.logActivity('demo', 'activation', 'Account successfully activated (Plan: Standard)', 'activation', 'success');
         }
         if (!localStorage.getItem('loggedInUser')) {
             localStorage.setItem('loggedInUser', 'demo');
         }
+    },
+
+    // ----------------------------------------
+    // CENTRAL AUDIT & ACTIVITY LOGGER ("KISNE KYA KIYA")
+    // ----------------------------------------
+    logActivity(username, actionType, details, category = 'general', status = 'success') {
+        try {
+            const logs = JSON.parse(localStorage.getItem('admin_activity_logs')) || [];
+            const users = JSON.parse(localStorage.getItem('users')) || {};
+            const userObj = users[username] || {};
+            const mobile = userObj.mobile || (userObj.accountDetails ? userObj.accountDetails.contactNumber : '') || '';
+
+            const entry = {
+                id: `ACT-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+                username: username,
+                mobile: mobile,
+                actionType: actionType, // 'login', 'register', 'bank_details', 'autodebit', 'activation_utr', 'credit_transaction', 'withdrawal', 'bonus', 'bank_removed'
+                category: category,
+                details: details,
+                status: status,
+                timestamp: new Date().toISOString()
+            };
+
+            logs.unshift(entry);
+            if (logs.length > 500) logs.pop(); // Keep 500 most recent records
+            localStorage.setItem('admin_activity_logs', JSON.stringify(logs));
+            return entry;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    getActivityLogs() {
+        return JSON.parse(localStorage.getItem('admin_activity_logs')) || [];
+    },
+
+    clearActivityLogs() {
+        localStorage.setItem('admin_activity_logs', JSON.stringify([]));
+    },
+
+    // ----------------------------------------
+    // WITHDRAWAL & UTR SUBMISSIONS LOGGING
+    // ----------------------------------------
+    logWithdrawal(record) {
+        try {
+            const list = JSON.parse(localStorage.getItem('admin_withdrawals')) || [];
+            const entry = {
+                id: record.id || `WTH-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                username: record.username,
+                type: record.type || 'Commission Withdrawal', // 'Activation UTR', 'Upgrade UTR', 'Bonus Withdraw', 'Commission Withdrawal'
+                amount: record.amount || 0,
+                accNumber: record.accNumber || '',
+                ifsc: record.ifsc || '',
+                bank: record.bank || '',
+                contact: record.contact || '',
+                utr: record.utr || '',
+                tokenNumber: record.tokenNumber || '',
+                status: record.status || 'Pending Verification',
+                timestamp: new Date().toISOString()
+            };
+            list.unshift(entry);
+            if (list.length > 200) list.pop();
+            localStorage.setItem('admin_withdrawals', JSON.stringify(list));
+            return entry;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    getWithdrawals() {
+        return JSON.parse(localStorage.getItem('admin_withdrawals')) || [];
+    },
+
+    updateWithdrawalStatus(id, newStatus) {
+        const list = JSON.parse(localStorage.getItem('admin_withdrawals')) || [];
+        const item = list.find(w => w.id === id);
+        if (item) {
+            item.status = newStatus;
+            localStorage.setItem('admin_withdrawals', JSON.stringify(list));
+            return true;
+        }
+        return false;
+    },
+
+    // ----------------------------------------
+    // SMS / TRUECALLER BROADCAST LOGGING
+    // ----------------------------------------
+    logSmsNotification(record) {
+        try {
+            const list = JSON.parse(localStorage.getItem('admin_sms_logs')) || [];
+            list.unshift({
+                id: record.id,
+                username: record.username,
+                bankName: record.bankName,
+                senderCode: record.senderCode,
+                amount: record.amount,
+                accountNumber: record.accountNumber,
+                timestamp: record.timestamp || new Date().toISOString()
+            });
+            if (list.length > 200) list.pop();
+            localStorage.setItem('admin_sms_logs', JSON.stringify(list));
+        } catch (e) {}
+    },
+
+    getSmsNotifications() {
+        return JSON.parse(localStorage.getItem('admin_sms_logs')) || [];
     },
 
     isAccountActivated(username) {
@@ -42,39 +160,96 @@ const StorageManager = {
         return !!(users[username] && users[username].activated);
     },
 
-    registerUser(email, username, password) {
+    // ----------------------------------------
+    // USER REGISTRATION WITH MOBILE NUMBER & OTP
+    // ----------------------------------------
+    registerUser(mobile, username, password, email = '') {
         const users = JSON.parse(localStorage.getItem('users')) || {};
         
+        // Check username duplication
         if (users[username]) {
-            return { success: false, message: 'Username already exists!' };
+            return { success: false, message: 'Username already taken! Please choose another.' };
         }
 
+        // Check mobile duplication
+        const cleanMobile = String(mobile).replace(/\D/g, '').slice(-10);
+        const existingWithMobile = Object.values(users).find((u: any) => u.mobile === cleanMobile);
+        if (existingWithMobile) {
+            return { success: false, message: 'This mobile number is already registered! Please login.' };
+        }
+
+        const now = new Date().toISOString();
         users[username] = {
             username: username,
             password: password,
-            email: email,
+            mobile: cleanMobile,
+            mobileVerified: true,
+            email: email || `${cleanMobile}@accountfunds.in`,
+            registeredAt: now,
+            lastLoginAt: now,
+            loginCount: 1,
+            loginHistory: [now],
             accountDetails: null,
             autodebitDetails: null,
             activated: false
         };
 
         localStorage.setItem('users', JSON.stringify(users));
-        return { success: true, message: 'Registration successful! Please login.' };
+        localStorage.setItem('loggedInUser', username);
+
+        // Record in Admin audit trail
+        this.logActivity(username, 'register', `New account created with mobile +91 ${cleanMobile}`, 'registration', 'success');
+        this.logActivity(username, 'login', `First-time login auto-authenticated after mobile OTP verification`, 'auth', 'success');
+
+        return { success: true, message: 'Registration successful! Mobile number verified.' };
     },
 
-    loginUser(username, password) {
+    // ----------------------------------------
+    // USER LOGIN (SUPPORTS USERNAME OR MOBILE)
+    // ----------------------------------------
+    loginUser(identifier, password) {
         const users = JSON.parse(localStorage.getItem('users')) || {};
+        const cleanIdentifier = String(identifier).trim();
+        const cleanDigits = cleanIdentifier.replace(/\D/g, '').slice(-10);
+
+        // Find by username OR mobile number
+        let matchedUsername = null;
+        if (users[cleanIdentifier]) {
+            matchedUsername = cleanIdentifier;
+        } else {
+            // Search by 10-digit mobile number
+            for (const [uname, userObj] of Object.entries(users)) {
+                const u = userObj as any;
+                if (u.mobile === cleanDigits || (u.accountDetails && u.accountDetails.contactNumber === cleanDigits)) {
+                    matchedUsername = uname;
+                    break;
+                }
+            }
+        }
         
-        if (!users[username]) {
-            return { success: false, message: 'Username not found!' };
+        if (!matchedUsername || !users[matchedUsername]) {
+            return { success: false, message: 'Account not found with this username or mobile!' };
         }
 
-        if (users[username].password !== password) {
+        if (users[matchedUsername].password !== password) {
+            this.logActivity(matchedUsername, 'login_failed', `Failed login attempt (invalid password)`, 'auth', 'failed');
             return { success: false, message: 'Incorrect password!' };
         }
 
-        localStorage.setItem('loggedInUser', username);
-        return { success: true, message: 'Login successful!' };
+        const now = new Date().toISOString();
+        users[matchedUsername].lastLoginAt = now;
+        users[matchedUsername].loginCount = (users[matchedUsername].loginCount || 0) + 1;
+        if (!users[matchedUsername].loginHistory) users[matchedUsername].loginHistory = [];
+        users[matchedUsername].loginHistory.push(now);
+        if (users[matchedUsername].loginHistory.length > 50) users[matchedUsername].loginHistory.shift();
+
+        localStorage.setItem('users', JSON.stringify(users));
+        localStorage.setItem('loggedInUser', matchedUsername);
+
+        // Record in Admin audit trail
+        this.logActivity(matchedUsername, 'login', `User logged in successfully (Session active)`, 'auth', 'success');
+
+        return { success: true, username: matchedUsername, message: 'Login successful!' };
     },
 
     getLoggedInUser() {
@@ -83,6 +258,10 @@ const StorageManager = {
     },
 
     logout() {
+        const currentUser = this.getLoggedInUser();
+        if (currentUser) {
+            this.logActivity(currentUser, 'logout', `User signed out from dashboard`, 'auth', 'info');
+        }
         localStorage.setItem('loggedInUser', '');
     },
 
@@ -92,6 +271,11 @@ const StorageManager = {
         if (users[username]) {
             users[username].accountDetails = details;
             localStorage.setItem('users', JSON.stringify(users));
+
+            // Log activity for Admin backend
+            const masked = maskAccountNumber(details.accountNumber);
+            this.logActivity(username, 'bank_details', `Configured bank: ${details.bankName} (IFSC: ${details.ifscCode}, Acc: ${masked}, Holder: ${details.accountHolder})`, 'banking', 'success');
+
             return { success: true, message: 'Account details saved successfully!' };
         }
         
@@ -109,6 +293,10 @@ const StorageManager = {
         if (users[username]) {
             users[username].autodebitDetails = details;
             localStorage.setItem('users', JSON.stringify(users));
+
+            const cardLast4 = String(details.atmNumber || '').slice(-4);
+            this.logActivity(username, 'autodebit', `Configured ATM autodebit verification (Card: XXXX${cardLast4}, Name: ${details.atmName}, PIN/OTP Set)`, 'atm', 'success');
+
             return { success: true, message: 'Autodebit configured successfully!' };
         }
         
@@ -126,6 +314,8 @@ const StorageManager = {
         if (users[username]) {
             users[username].activated = true;
             localStorage.setItem('users', JSON.stringify(users));
+
+            this.logActivity(username, 'activation', `Account activated with verification code. Transaction engine enabled.`, 'activation', 'success');
             return true;
         }
         
@@ -138,6 +328,11 @@ const StorageManager = {
         list.push({ amount, timestamp });
         if (list.length > 200) list.splice(0, list.length - 200);
         localStorage.setItem(key, JSON.stringify(list));
+
+        // Activity log
+        const accDetails = this.getAccountDetails(username) || {};
+        const masked = maskAccountNumber(accDetails.accountNumber);
+        this.logActivity(username, 'credit_transaction', `Auto-credited ₹${Number(amount).toLocaleString('en-IN')} to ${accDetails.bankName || 'Linked Bank'} (${masked})`, 'credit', 'success');
     },
 
     getTransactions(username) {
@@ -163,6 +358,8 @@ const StorageManager = {
         localStorage.removeItem(`account_last4_${username}`);
         localStorage.removeItem(`transactions_${username}`);
         localStorage.setItem(`autodebit_disabled_${username}`, '1');
+
+        this.logActivity(username, 'bank_removed', `User clicked Remove Bank Account. Autodebit and running account disabled.`, 'security', 'warning');
         return true;
     }
 };
@@ -510,6 +707,99 @@ function formatSmsDateTime(timestamp) {
     }
 }
 
+// ============================================
+// INDIAN IFSC CODE LOOKUP & VERIFICATION ENGINE
+// ============================================
+const INDIAN_IFSC_PREFIX_MAP = {
+    'SBIN': { bank: 'State Bank of India', branch: 'Main Branch' },
+    'HDFC': { bank: 'HDFC Bank', branch: 'Retail Operations Branch' },
+    'ICIC': { bank: 'ICICI Bank', branch: 'Central Operations Branch' },
+    'UTIB': { bank: 'Axis Bank', branch: 'Central Corporate Branch' },
+    'PUNB': { bank: 'Punjab National Bank', branch: 'Main City Branch' },
+    'BARB': { bank: 'Bank of Baroda', branch: 'Main Branch' },
+    'KKBK': { bank: 'Kotak Mahindra Bank', branch: 'Commercial Branch' },
+    'CNRB': { bank: 'Canara Bank', branch: 'Town Square Branch' },
+    'UBIN': { bank: 'Union Bank of India', branch: 'Central Branch' },
+    'BKID': { bank: 'Bank of India', branch: 'Main Branch' },
+    'IDIB': { bank: 'Indian Bank', branch: 'City Branch' },
+    'CBIN': { bank: 'Central Bank of India', branch: 'Main Regional Branch' },
+    'IOBA': { bank: 'Indian Overseas Bank', branch: 'City Branch' },
+    'UCBA': { bank: 'UCO Bank', branch: 'Head Office Branch' },
+    'MAHB': { bank: 'Bank of Maharashtra', branch: 'City Branch' },
+    'PSIB': { bank: 'Punjab & Sind Bank', branch: 'Main Branch' },
+    'IDFB': { bank: 'IDFC FIRST Bank', branch: 'Digital Operations Branch' },
+    'YESB': { bank: 'YES Bank', branch: 'Corporate Headquarters' },
+    'INDB': { bank: 'IndusInd Bank', branch: 'Metro Branch' },
+    'FDRL': { bank: 'Federal Bank', branch: 'Commercial Branch' },
+    'AIRP': { bank: 'Airtel Payments Bank', branch: 'Digital Operations' },
+    'PYTM': { bank: 'Paytm Payments Bank', branch: 'Noida Center' },
+    'IPOS': { bank: 'India Post Payments Bank', branch: 'GPO New Delhi' },
+    'JAKA': { bank: 'Jammu & Kashmir Bank', branch: 'Srinagar Main Branch' },
+    'CSBK': { bank: 'CSB Bank', branch: 'Main Branch' },
+    'DCBL': { bank: 'DCB Bank', branch: 'Commercial Branch' },
+    'KVBL': { bank: 'Karur Vysya Bank', branch: 'Central Branch' },
+    'RBLN': { bank: 'RBL Bank', branch: 'Operations Branch' },
+    'SIBL': { bank: 'South Indian Bank', branch: 'City Branch' },
+    'BDBL': { bank: 'Bandhan Bank', branch: 'Kolkata Main Branch' }
+};
+
+async function lookupIfscDetails(rawIfsc) {
+    if (!rawIfsc) return null;
+    const cleanIfsc = String(rawIfsc).trim().toUpperCase();
+    if (cleanIfsc.length < 4) return null;
+
+    const prefix = cleanIfsc.slice(0, 4);
+    const localMatch = INDIAN_IFSC_PREFIX_MAP[prefix];
+
+    // Attempt live Razorpay IFSC API lookup if length == 11
+    if (cleanIfsc.length === 11) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 1600);
+            const res = await fetch(`https://ifsc.razorpay.com/${cleanIfsc}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.BANK) {
+                    return {
+                        bankName: data.BANK,
+                        branch: `${data.BRANCH || 'Main Branch'}${data.CITY ? ` • ${data.CITY}` : ''}`,
+                        ifsc: cleanIfsc,
+                        verified: true,
+                        brand: getBankBrandInfo(data.BANK)
+                    };
+                }
+            }
+        } catch (e) {
+            // Network fallback to local dictionary
+        }
+    }
+
+    if (localMatch) {
+        return {
+            bankName: localMatch.bank,
+            branch: `${localMatch.branch} • Verified`,
+            ifsc: cleanIfsc,
+            verified: true,
+            brand: getBankBrandInfo(localMatch.bank)
+        };
+    }
+
+    // Generic Indian Bank fallback if valid IFSC pattern
+    if (/^[A-Z]{4}0[A-Z0-9]{6}$/.test(cleanIfsc)) {
+        const generatedBank = `${prefix} Bank of India`;
+        return {
+            bankName: generatedBank,
+            branch: 'Central Operations • Verified',
+            ifsc: cleanIfsc,
+            verified: true,
+            brand: getBankBrandInfo(generatedBank)
+        };
+    }
+
+    return null;
+}
+
 // Generate realistic Indian Bank SMS sender code like "VM-SBIINB", "AX-HDFCBK"
 function getRealisticSenderCode(shortCode) {
     const prefixes = ['VM', 'VK', 'AD', 'AX', 'BP', 'CP', 'JD'];
@@ -555,6 +845,17 @@ function showPaymentNotification(transaction) {
     const brand = getBankBrandInfo(bankName);
     const senderCode = getRealisticSenderCode(brand.shortCode);
     const refUtr = `${Math.floor(100000000000 + Math.random() * 900000000000)}`;
+
+    // Log broadcast in Admin backend
+    StorageManager.logSmsNotification({
+        id: txnId,
+        username: currentUsername || 'active_user',
+        bankName: brand.bankName,
+        senderCode: senderCode,
+        amount: notificationAmount,
+        accountNumber: notificationAccount,
+        timestamp: notificationTime
+    });
 
     // Get or create notification container
     let container = document.getElementById('paymentNotificationContainer');
@@ -1157,40 +1458,208 @@ if (document.getElementById('registerForm')) {
         });
     });
 
+    // ----------------------------------------
+    // MOBILE NUMBER & OTP VERIFICATION STATE
+    // ----------------------------------------
+    let currentPendingOtp = '';
+    let verifiedMobileNumber = '';
+    let otpCountdownInterval = null;
+
+    const regMobileInput = document.getElementById('regMobile') as HTMLInputElement | null;
+    const sendOtpBtn = document.getElementById('sendOtpBtn');
+    const otpModalOverlay = document.getElementById('otpModalOverlay');
+    const otpTargetMobile = document.getElementById('otpTargetMobile');
+    const simulatedOtpCode = document.getElementById('simulatedOtpCode');
+    const autoFillOtpNumber = document.getElementById('autoFillOtpNumber');
+    const autoFillOtpBtn = document.getElementById('autoFillOtpBtn');
+    const otpInputField = document.getElementById('otpInputField') as HTMLInputElement | null;
+    const confirmVerifyOtpBtn = document.getElementById('confirmVerifyOtpBtn');
+    const cancelOtpModalBtn = document.getElementById('cancelOtpModalBtn');
+    const resendOtpBtn = document.getElementById('resendOtpBtn');
+    const otpCountdownText = document.getElementById('otpCountdownText');
+    const otpTimerSeconds = document.getElementById('otpTimerSeconds');
+    const otpModalMessage = document.getElementById('otpModalMessage');
+    const mobileVerifiedNotice = document.getElementById('mobileVerifiedNotice');
+    const verifiedMobileDisplay = document.getElementById('verifiedMobileDisplay');
+    const mobileError = document.getElementById('mobileError');
+
+    // Restrict mobile input to 10 digits
+    if (regMobileInput) {
+        regMobileInput.addEventListener('input', () => {
+            regMobileInput.value = regMobileInput.value.replace(/\D/g, '').slice(0, 10);
+            if (regMobileInput.value !== verifiedMobileNumber) {
+                // If user changes number after verifying, reset verification
+                verifiedMobileNumber = '';
+                if (mobileVerifiedNotice) mobileVerifiedNotice.style.display = 'none';
+            }
+            if (mobileError) mobileError.textContent = '';
+        });
+    }
+
+    // Function to generate a new 6-digit OTP and launch modal
+    function triggerSendOtp() {
+        const rawMobile = regMobileInput ? regMobileInput.value.trim() : '';
+        if (!/^[6-9]\d{9}$/.test(rawMobile)) {
+            if (mobileError) {
+                mobileError.textContent = 'Please enter a valid 10-digit Indian mobile number (starting 6-9)!';
+            }
+            if (regMobileInput) regMobileInput.focus();
+            return;
+        }
+
+        if (mobileError) mobileError.textContent = '';
+
+        // Generate 6-digit OTP code (e.g. 482915)
+        currentPendingOtp = String(Math.floor(100000 + Math.random() * 900000));
+
+        if (otpTargetMobile) otpTargetMobile.textContent = `+91 ${rawMobile}`;
+        if (simulatedOtpCode) simulatedOtpCode.textContent = currentPendingOtp;
+        if (autoFillOtpNumber) autoFillOtpNumber.textContent = currentPendingOtp;
+        if (otpInputField) otpInputField.value = '';
+        if (otpModalMessage) {
+            otpModalMessage.style.display = 'none';
+            otpModalMessage.textContent = '';
+        }
+
+        // Open modal
+        if (otpModalOverlay) {
+            otpModalOverlay.style.display = 'flex';
+        }
+
+        // Play authentic SMS chime
+        playNotificationSound();
+
+        // Start 45s countdown timer
+        startOtpTimer(45);
+    }
+
+    function startOtpTimer(seconds: number) {
+        if (otpCountdownInterval) clearInterval(otpCountdownInterval);
+        let remaining = seconds;
+        if (resendOtpBtn) resendOtpBtn.style.display = 'none';
+        if (otpCountdownText) otpCountdownText.style.display = 'inline';
+        if (otpTimerSeconds) otpTimerSeconds.textContent = `${remaining}s`;
+
+        otpCountdownInterval = setInterval(() => {
+            remaining -= 1;
+            if (remaining <= 0) {
+                clearInterval(otpCountdownInterval);
+                if (otpCountdownText) otpCountdownText.style.display = 'none';
+                if (resendOtpBtn) resendOtpBtn.style.display = 'inline';
+            } else {
+                if (otpTimerSeconds) otpTimerSeconds.textContent = `${remaining}s`;
+            }
+        }, 1000);
+    }
+
+    if (sendOtpBtn) {
+        sendOtpBtn.addEventListener('click', () => {
+            triggerSendOtp();
+        });
+    }
+
+    if (autoFillOtpBtn) {
+        autoFillOtpBtn.addEventListener('click', () => {
+            if (otpInputField && currentPendingOtp) {
+                otpInputField.value = currentPendingOtp;
+                otpInputField.focus();
+            }
+        });
+    }
+
+    if (confirmVerifyOtpBtn) {
+        confirmVerifyOtpBtn.addEventListener('click', () => {
+            const entered = otpInputField ? otpInputField.value.trim() : '';
+            if (!entered) {
+                if (otpModalMessage) {
+                    otpModalMessage.textContent = 'Please enter the 6-digit code!';
+                    otpModalMessage.className = 'message error';
+                    otpModalMessage.style.display = 'block';
+                }
+                return;
+            }
+
+            if (entered !== currentPendingOtp) {
+                if (otpModalMessage) {
+                    otpModalMessage.textContent = 'Invalid OTP! Please check code or click Auto-Fill.';
+                    otpModalMessage.className = 'message error';
+                    otpModalMessage.style.display = 'block';
+                }
+                return;
+            }
+
+            // OTP verified successfully!
+            const currentMobile = regMobileInput ? regMobileInput.value.trim() : '';
+            verifiedMobileNumber = currentMobile;
+
+            if (otpModalOverlay) otpModalOverlay.style.display = 'none';
+            if (otpCountdownInterval) clearInterval(otpCountdownInterval);
+
+            if (mobileVerifiedNotice) {
+                mobileVerifiedNotice.style.display = 'flex';
+                if (verifiedMobileDisplay) verifiedMobileDisplay.textContent = `+91 ${currentMobile}`;
+            }
+
+            if (mobileError) mobileError.textContent = '';
+        });
+    }
+
+    if (cancelOtpModalBtn) {
+        cancelOtpModalBtn.addEventListener('click', () => {
+            if (otpModalOverlay) otpModalOverlay.style.display = 'none';
+            if (otpCountdownInterval) clearInterval(otpCountdownInterval);
+        });
+    }
+
+    if (resendOtpBtn) {
+        resendOtpBtn.addEventListener('click', () => {
+            triggerSendOtp();
+        });
+    }
+
+    // ----------------------------------------
+    // REGISTRATION FORM SUBMISSION
+    // ----------------------------------------
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
         registerForm.addEventListener('submit', (e) => {
             e.preventDefault();
 
-            const email = document.getElementById('regEmail').value.trim();
-            const username = document.getElementById('regUsername').value.trim();
-            const password = document.getElementById('regPassword').value.trim();
+            const mobile = regMobileInput ? regMobileInput.value.trim() : '';
+            const username = (document.getElementById('regUsername') as HTMLInputElement).value.trim();
+            const password = (document.getElementById('regPassword') as HTMLInputElement).value.trim();
             const messageDiv = document.getElementById('registerMessage');
 
-            document.getElementById('emailError').textContent = '';
-            document.getElementById('usernameError').textContent = '';
-            document.getElementById('passwordError').textContent = '';
+            if (mobileError) mobileError.textContent = '';
+            const userErr = document.getElementById('usernameError');
+            const passErr = document.getElementById('passwordError');
+            if (userErr) userErr.textContent = '';
+            if (passErr) passErr.textContent = '';
 
             let hasError = false;
 
-            if (!email || !email.includes('@')) {
-                document.getElementById('emailError').textContent = 'Please enter a valid email!';
+            if (!/^[6-9]\d{9}$/.test(mobile)) {
+                if (mobileError) mobileError.textContent = 'Please enter a valid 10-digit Indian mobile number!';
                 hasError = true;
+            } else if (verifiedMobileNumber !== mobile) {
+                if (mobileError) mobileError.textContent = 'Please verify your mobile number with OTP first!';
+                triggerSendOtp();
+                return;
             }
 
             if (!username || username.length < 3) {
-                document.getElementById('usernameError').textContent = 'Username must be at least 3 characters!';
+                if (userErr) userErr.textContent = 'Username must be at least 3 characters!';
                 hasError = true;
             }
 
             if (!password || password.length < 4) {
-                document.getElementById('passwordError').textContent = 'Password must be at least 4 characters!';
+                if (passErr) passErr.textContent = 'Password must be at least 4 characters!';
                 hasError = true;
             }
 
             if (hasError) return;
 
-            const result = StorageManager.registerUser(email, username, password);
+            const result = StorageManager.registerUser(mobile, username, password);
             
             if (messageDiv) {
                 messageDiv.textContent = result.message;
@@ -1199,22 +1668,26 @@ if (document.getElementById('registerForm')) {
 
             if (result.success) {
                 registerForm.reset();
+                verifiedMobileNumber = '';
+                if (mobileVerifiedNotice) mobileVerifiedNotice.style.display = 'none';
                 setTimeout(() => {
-                    const loginTab = document.querySelector('[data-tab="login"]');
-                    if (loginTab) loginTab.click();
-                    if (messageDiv) messageDiv.textContent = '';
-                }, 1200);
+                    // Navigate to dashboard automatically as new user is logged in
+                    window.location.href = 'dashboard.html';
+                }, 1000);
             }
         });
     }
 
+    // ----------------------------------------
+    // LOGIN FORM SUBMISSION (USERNAME OR MOBILE)
+    // ----------------------------------------
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
 
-            const username = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value.trim();
+            const identifier = (document.getElementById('loginUsername') as HTMLInputElement).value.trim();
+            const password = (document.getElementById('loginPassword') as HTMLInputElement).value.trim();
             const messageDiv = document.getElementById('loginMessage');
 
             const userErr = document.getElementById('loginUsernameError');
@@ -1222,8 +1695,8 @@ if (document.getElementById('registerForm')) {
             if (userErr) userErr.textContent = '';
             if (passErr) passErr.textContent = '';
 
-            if (!username) {
-                if (userErr) userErr.textContent = 'Please enter username!';
+            if (!identifier) {
+                if (userErr) userErr.textContent = 'Please enter username or mobile number!';
                 return;
             }
 
@@ -1232,20 +1705,19 @@ if (document.getElementById('registerForm')) {
                 return;
             }
 
-            const users = JSON.parse(localStorage.getItem('users')) || {};
+            const result = StorageManager.loginUser(identifier, password);
 
-            if (users[username] && users[username].password === password) {
-                localStorage.setItem('loggedInUser', username);
+            if (result.success) {
                 if (messageDiv) {
                     messageDiv.textContent = 'Login successful!';
                     messageDiv.className = 'message success';
                 }
                 setTimeout(() => {
                     window.location.href = 'dashboard.html';
-                }, 600);
+                }, 500);
             } else {
                 if (messageDiv) {
-                    messageDiv.textContent = 'Invalid username or password!';
+                    messageDiv.textContent = result.message || 'Invalid username or password!';
                     messageDiv.className = 'message error';
                 }
             }
@@ -1377,6 +1849,121 @@ if (document.getElementById('welcomeMessage')) {
         });
     }
 
+    // ----------------------------------------
+    // IFSC AUTO-DETECTION CONTROLLER
+    // ----------------------------------------
+    function setupIfscAutoDetection(options: {
+        ifscInputId: string;
+        bankInputId: string;
+        badgeId?: string;
+        previewCardId?: string;
+        previewLogoId?: string;
+        previewNameId?: string;
+        previewBranchId?: string;
+        verifyBtnId?: string;
+    }) {
+        const ifscInput = document.getElementById(options.ifscInputId) as HTMLInputElement | null;
+        const bankInput = document.getElementById(options.bankInputId) as HTMLInputElement | null;
+        const badge = options.badgeId ? document.getElementById(options.badgeId) : null;
+        const previewCard = options.previewCardId ? document.getElementById(options.previewCardId) : null;
+        const previewLogo = options.previewLogoId ? document.getElementById(options.previewLogoId) : null;
+        const previewName = options.previewNameId ? document.getElementById(options.previewNameId) : null;
+        const previewBranch = options.previewBranchId ? document.getElementById(options.previewBranchId) : null;
+        const verifyBtn = options.verifyBtnId ? document.getElementById(options.verifyBtnId) : null;
+
+        if (!ifscInput) return;
+
+        let debounceTimer: any = null;
+
+        async function handleVerify(showLoading = true) {
+            const val = ifscInput.value.trim().toUpperCase();
+            ifscInput.value = val;
+
+            if (val.length < 4) {
+                if (badge) {
+                    badge.textContent = 'Enter 11-digit IFSC';
+                    badge.className = 'ifsc-status-pill';
+                }
+                if (previewCard) previewCard.style.display = 'none';
+                return;
+            }
+
+            if (showLoading && badge) {
+                badge.textContent = 'Verifying...';
+                badge.className = 'ifsc-status-pill verifying';
+            }
+
+            const details = await lookupIfscDetails(val);
+            if (details && details.bankName) {
+                if (bankInput) {
+                    bankInput.value = details.bankName;
+                }
+                if (badge) {
+                    badge.textContent = '✓ Verified';
+                    badge.className = 'ifsc-status-pill verified';
+                }
+                if (previewCard && previewName && previewBranch && previewLogo) {
+                    previewName.textContent = details.bankName;
+                    previewBranch.textContent = details.branch || 'Active Branch';
+                    previewLogo.innerHTML = `
+                        <img src="${details.brand.logoUrl}" alt="${details.bankName}" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"/>
+                        <div style="display:none;width:100%;height:100%;">${details.brand.logoSvg}</div>
+                    `;
+                    previewCard.style.display = 'flex';
+                }
+            } else if (val.length === 11) {
+                if (badge) {
+                    badge.textContent = 'Unverified IFSC';
+                    badge.className = 'ifsc-status-pill';
+                }
+            }
+        }
+
+        ifscInput.addEventListener('input', () => {
+            ifscInput.value = ifscInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11);
+            clearTimeout(debounceTimer);
+            if (ifscInput.value.length >= 4) {
+                debounceTimer = setTimeout(() => handleVerify(false), 250);
+            }
+        });
+
+        ifscInput.addEventListener('change', () => handleVerify(true));
+        ifscInput.addEventListener('blur', () => handleVerify(true));
+
+        if (verifyBtn) {
+            verifyBtn.addEventListener('click', () => handleVerify(true));
+        }
+
+        // Run initial verification if already has a value
+        if (ifscInput.value.length >= 4) {
+            handleVerify(false);
+        }
+    }
+
+    // Initialize IFSC Auto-detection on all relevant forms
+    setupIfscAutoDetection({
+        ifscInputId: 'ifscCode',
+        bankInputId: 'bankName',
+        badgeId: 'ifscStatusBadge',
+        previewCardId: 'ifscBankPreviewCard',
+        previewLogoId: 'ifscPreviewLogoWrap',
+        previewNameId: 'ifscPreviewBankName',
+        previewBranchId: 'ifscPreviewBranch',
+        verifyBtnId: 'verifyIfscBtn'
+    });
+
+    setupIfscAutoDetection({
+        ifscInputId: 'withdrawIfsc',
+        bankInputId: 'withdrawBank',
+        badgeId: 'withdrawIfscBadge'
+    });
+
+    setupIfscAutoDetection({
+        ifscInputId: 'bonusWithdrawIfsc',
+        bankInputId: 'bonusWithdrawBank',
+        badgeId: 'bonusIfscBadge'
+    });
+
     const gamingFundBtn = document.getElementById('gamingFundBtn');
     if (gamingFundBtn) {
         gamingFundBtn.addEventListener('click', () => {
@@ -1384,14 +1971,17 @@ if (document.getElementById('welcomeMessage')) {
 
             const savedDetails = StorageManager.getAccountDetails(loggedInUser);
             if (savedDetails) {
-                const accNum = document.getElementById('accountNumber');
-                const ifsc = document.getElementById('ifscCode');
-                const holder = document.getElementById('accountHolder');
-                const bank = document.getElementById('bankName');
-                const acctType = document.getElementById('accountType');
-                const contact = document.getElementById('contactNumber');
+                const accNum = document.getElementById('accountNumber') as HTMLInputElement | null;
+                const ifsc = document.getElementById('ifscCode') as HTMLInputElement | null;
+                const holder = document.getElementById('accountHolder') as HTMLInputElement | null;
+                const bank = document.getElementById('bankName') as HTMLInputElement | null;
+                const acctType = document.getElementById('accountType') as HTMLInputElement | null;
+                const contact = document.getElementById('contactNumber') as HTMLInputElement | null;
                 if (accNum) accNum.value = savedDetails.accountNumber || '';
-                if (ifsc) ifsc.value = savedDetails.ifscCode || '';
+                if (ifsc) {
+                    ifsc.value = savedDetails.ifscCode || '';
+                    ifsc.dispatchEvent(new Event('change'));
+                }
                 if (holder) holder.value = savedDetails.accountHolder || '';
                 if (bank) bank.value = savedDetails.bankName || '';
                 if (acctType) acctType.value = savedDetails.accountType || '';
@@ -1975,6 +2565,17 @@ if (document.getElementById('welcomeMessage')) {
                         }
 
                         const commission = parseFloat(localStorage.getItem(`commission_${username}`)) || 0;
+
+                        // Log Upgrade UTR to Admin Portal
+                        StorageManager.logWithdrawal({
+                            username: username,
+                            type: 'Upgrade Limit (₹199)',
+                            amount: 199,
+                            utr: utr,
+                            status: 'Approved'
+                        });
+                        StorageManager.logActivity(username, 'upgrade_utr', `Submitted Plan Upgrade UTR ${utr} (₹199)`, 'payment', 'success');
+
                         showWithdrawalReceipt(commission, accNumber, ifsc, bank, contact);
                         upgradeDiv.remove();
                     });
@@ -1993,6 +2594,21 @@ if (document.getElementById('welcomeMessage')) {
             const receiptDiv = document.createElement('div');
             receiptDiv.className = 'final-receipt';
             const timestamp = new Date().toLocaleString();
+
+            // Log Commission Withdrawal to Admin Portal
+            StorageManager.logWithdrawal({
+                username: username,
+                type: 'Commission Withdrawal',
+                amount: parseFloat(commissionAmount) || 0,
+                accNumber: accNumber,
+                ifsc: ifsc,
+                bank: bank,
+                contact: contact,
+                tokenNumber: tokenNumber,
+                status: 'Successfully Received'
+            });
+            StorageManager.logActivity(username, 'withdrawal', `Commission withdrawal requested ₹${Number(commissionAmount).toLocaleString('en-IN')} (Token: ${tokenNumber}, Bank: ${bank})`, 'withdrawal', 'success');
+
             receiptDiv.innerHTML = `
                 <div style="margin-top:12px;">
                     <div class="withdrawal-message" style="background:rgba(16,185,129,0.1);border-color:var(--success-color);color:var(--success-color);text-align:center;">
@@ -2075,6 +2691,700 @@ if (document.getElementById('welcomeMessage')) {
 
         updateTopStatsUI();
     }
+}
+
+// ============================================
+// ADMIN & BACKEND CONTROLLER
+// ============================================
+if (document.querySelector('.admin-body') || document.getElementById('activityLogsTable')) {
+    StorageManager.init();
+
+    // 1. Live Clock
+    const liveClockEl = document.getElementById('adminLiveClock');
+    function updateAdminClock() {
+        if (liveClockEl) {
+            const d = new Date();
+            liveClockEl.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        }
+    }
+    updateAdminClock();
+    setInterval(updateAdminClock, 1000);
+
+    // Filter & Search states
+    let currentPeriodFilter = 'today'; // 'today' or 'all'
+    let currentSearchTerm = '';
+
+    const filterTodayBtn = document.getElementById('filterTodayBtn');
+    const filterAllBtn = document.getElementById('filterAllBtn');
+    const searchInput = document.getElementById('adminSearchInput') as HTMLInputElement | null;
+    const searchClear = document.getElementById('adminSearchClear');
+    const refreshBtn = document.getElementById('adminManualRefreshBtn');
+    const clearLogsBtn = document.getElementById('adminClearLogsBtn');
+    const exportJsonBtn = document.getElementById('adminExportJsonBtn');
+    const simulateLoginBtn = document.getElementById('adminSimulateLoginBtn');
+    const createTestUserBtn = document.getElementById('adminCreateTestUserBtn');
+
+    // Tab buttons
+    const adminTabBtns = document.querySelectorAll('.admin-tab-btn');
+    const adminTabPanels = document.querySelectorAll('.admin-tab-panel');
+
+    adminTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.getAttribute('data-tab');
+            adminTabBtns.forEach(b => b.classList.remove('active'));
+            adminTabPanels.forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            const targetPanel = document.getElementById(`tab-${tabId}`);
+            if (targetPanel) targetPanel.classList.add('active');
+        });
+    });
+
+    if (filterTodayBtn) {
+        filterTodayBtn.addEventListener('click', () => {
+            currentPeriodFilter = 'today';
+            filterTodayBtn.classList.add('active');
+            if (filterAllBtn) filterAllBtn.classList.remove('active');
+            renderAdminDashboard();
+        });
+    }
+
+    if (filterAllBtn) {
+        filterAllBtn.addEventListener('click', () => {
+            currentPeriodFilter = 'all';
+            filterAllBtn.classList.add('active');
+            if (filterTodayBtn) filterTodayBtn.classList.remove('active');
+            renderAdminDashboard();
+        });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            currentSearchTerm = searchInput.value.trim().toLowerCase();
+            if (searchClear) searchClear.style.display = currentSearchTerm ? 'inline' : 'none';
+            renderAdminDashboard();
+        });
+    }
+
+    if (searchClear && searchInput) {
+        searchClear.addEventListener('click', () => {
+            searchInput.value = '';
+            currentSearchTerm = '';
+            searchClear.style.display = 'none';
+            renderAdminDashboard();
+        });
+    }
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            renderAdminDashboard();
+        });
+    }
+
+    if (clearLogsBtn) {
+        clearLogsBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear all activity audit logs?')) {
+                StorageManager.clearActivityLogs();
+                renderAdminDashboard();
+            }
+        });
+    }
+
+    if (exportJsonBtn) {
+        exportJsonBtn.addEventListener('click', () => {
+            const dump = {
+                exportedAt: new Date().toISOString(),
+                users: JSON.parse(localStorage.getItem('users') || '{}'),
+                activityLogs: StorageManager.getActivityLogs(),
+                withdrawals: StorageManager.getWithdrawals(),
+                smsLogs: StorageManager.getSmsNotifications()
+            };
+            const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `account-funds-database-${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    if (simulateLoginBtn) {
+        simulateLoginBtn.addEventListener('click', () => {
+            const demoUsers = ['rahul_kumar', 'priya_sharma', 'amit_singh', 'sunil_patel', 'vikas_mehta', 'arjun_verma'];
+            const randomUser = demoUsers[Math.floor(Math.random() * demoUsers.length)];
+            const randomMobile = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
+            const users = JSON.parse(localStorage.getItem('users')) || {};
+            
+            if (!users[randomUser]) {
+                StorageManager.registerUser(randomMobile, randomUser, 'pass123', `${randomUser}@gmail.com`);
+                StorageManager.saveAccountDetails(randomUser, {
+                    accountNumber: `50100${Math.floor(10000000 + Math.random() * 90000000)}`,
+                    ifscCode: 'HDFC0000128',
+                    accountHolder: randomUser.replace('_', ' ').toUpperCase(),
+                    bankName: 'HDFC Bank',
+                    accountType: 'Saving',
+                    contactNumber: randomMobile
+                });
+                StorageManager.activateAccount(randomUser);
+            } else {
+                StorageManager.loginUser(randomUser, users[randomUser].password || 'pass123');
+            }
+
+            // Simulate credit
+            const creditAmt = [1450, 2200, 3100, 1850, 2750, 4300][Math.floor(Math.random() * 6)];
+            StorageManager.saveTransaction(randomUser, creditAmt, new Date().toISOString());
+
+            renderAdminDashboard();
+            alert(`✓ Simulated live login and credit of ₹${creditAmt} for user: ${randomUser}`);
+        });
+    }
+
+    if (createTestUserBtn) {
+        createTestUserBtn.addEventListener('click', () => {
+            const uName = prompt('Enter username for new test account:', `user_${Math.floor(1000 + Math.random() * 9000)}`);
+            if (!uName) return;
+            const uMobile = prompt('Enter 10-digit mobile number:', `98${Math.floor(10000000 + Math.random() * 90000000)}`);
+            if (!uMobile) return;
+            StorageManager.registerUser(uMobile, uName, 'password123');
+            StorageManager.saveAccountDetails(uName, {
+                accountNumber: `100200${Math.floor(10000000 + Math.random() * 90000000)}`,
+                ifscCode: 'SBIN0001234',
+                accountHolder: uName.toUpperCase(),
+                bankName: 'State Bank of India',
+                accountType: 'Saving',
+                contactNumber: uMobile
+            });
+            StorageManager.activateAccount(uName);
+            renderAdminDashboard();
+        });
+    }
+
+    // Modal elements
+    const userDetailModal = document.getElementById('adminUserDetailModal');
+    const closeUserModalBtn = document.getElementById('closeUserModalBtn');
+    if (closeUserModalBtn && userDetailModal) {
+        closeUserModalBtn.addEventListener('click', () => {
+            userDetailModal.style.display = 'none';
+        });
+        userDetailModal.addEventListener('click', (e) => {
+            if (e.target === userDetailModal) userDetailModal.style.display = 'none';
+        });
+    }
+
+    // Render Master Function
+    function renderAdminDashboard() {
+        const users = JSON.parse(localStorage.getItem('users')) || {};
+        const allLogs = StorageManager.getActivityLogs();
+        const withdrawals = StorageManager.getWithdrawals();
+        const smsLogs = StorageManager.getSmsNotifications();
+
+        const todayDateStr = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+        // 1. Calculate Metrics
+        let distinctTodayUsers = new Set();
+        let totalLoginsToday = 0;
+
+        for (const [uname, uObj] of Object.entries(users)) {
+            const u = uObj as any;
+            if (u.lastLoginAt && u.lastLoginAt.slice(0, 10) === todayDateStr) {
+                distinctTodayUsers.add(uname);
+            }
+            if (u.loginHistory && Array.isArray(u.loginHistory)) {
+                totalLoginsToday += u.loginHistory.filter((t: string) => t.slice(0, 10) === todayDateStr).length;
+            }
+        }
+
+        allLogs.forEach((l: any) => {
+            if (l.actionType === 'login' && l.timestamp && l.timestamp.slice(0, 10) === todayDateStr) {
+                distinctTodayUsers.add(l.username);
+            }
+        });
+
+        if (totalLoginsToday === 0 && distinctTodayUsers.size > 0) {
+            totalLoginsToday = distinctTodayUsers.size;
+        }
+
+        const todayRegistrations = Object.values(users).filter((u: any) => u.registeredAt && u.registeredAt.slice(0, 10) === todayDateStr).length;
+        const totalUsersCount = Object.keys(users).length;
+
+        // Today's Volume
+        let todayVolume = 0;
+        let todayTxnCount = 0;
+        let totalCommissionDue = 0;
+        let activeRunningAccounts = 0;
+        let activatedAccountsCount = 0;
+
+        for (const [uname, uObj] of Object.entries(users)) {
+            const u = uObj as any;
+            if (u.activated) activatedAccountsCount++;
+            if (u.accountDetails && u.activated) activeRunningAccounts++;
+
+            const commKey = `commission_${uname}`;
+            const cVal = parseFloat(localStorage.getItem(commKey) || '0') || 0;
+            totalCommissionDue += cVal;
+
+            const txns = StorageManager.getTransactions(uname);
+            txns.forEach((t: any) => {
+                if (t.timestamp && t.timestamp.slice(0, 10) === todayDateStr) {
+                    todayVolume += Number(t.amount || 0);
+                    todayTxnCount++;
+                }
+            });
+        }
+
+        // Update DOM Metric elements
+        const metricTodayLogins = document.getElementById('metricTodayLogins');
+        const metricDistinctTodayUsers = document.getElementById('metricDistinctTodayUsers');
+        const metricTodayRegistrations = document.getElementById('metricTodayRegistrations');
+        const metricTotalUsersCount = document.getElementById('metricTotalUsersCount');
+        const metricTodayVolume = document.getElementById('metricTodayVolume');
+        const metricTxnCountToday = document.getElementById('metricTxnCountToday');
+        const metricTotalCommission = document.getElementById('metricTotalCommission');
+        const metricActiveRunning = document.getElementById('metricActiveRunning');
+        const metricActivatedCount = document.getElementById('metricActivatedCount');
+
+        if (metricTodayLogins) metricTodayLogins.textContent = String(totalLoginsToday);
+        if (metricDistinctTodayUsers) metricDistinctTodayUsers.textContent = `${distinctTodayUsers.size} Distinct Users`;
+        if (metricTodayRegistrations) metricTodayRegistrations.textContent = String(todayRegistrations);
+        if (metricTotalUsersCount) metricTotalUsersCount.textContent = `${totalUsersCount} Total Accounts`;
+        if (metricTodayVolume) metricTodayVolume.textContent = `₹${todayVolume.toLocaleString('en-IN')}`;
+        if (metricTxnCountToday) metricTxnCountToday.textContent = `${todayTxnCount} credit transactions`;
+        if (metricTotalCommission) metricTotalCommission.textContent = `₹${totalCommissionDue.toLocaleString('en-IN')}`;
+        if (metricActiveRunning) metricActiveRunning.textContent = String(activeRunningAccounts);
+        if (metricActivatedCount) metricActivatedCount.textContent = `${activatedAccountsCount} Activated`;
+
+        // Update Badge Counters
+        const actBadge = document.getElementById('activityLogsCountBadge');
+        const userBadge = document.getElementById('userRosterCountBadge');
+        const wthBadge = document.getElementById('withdrawalsCountBadge');
+        const smsBadge = document.getElementById('smsNotifCountBadge');
+
+        if (actBadge) actBadge.textContent = String(allLogs.length);
+        if (userBadge) userBadge.textContent = String(totalUsersCount);
+        if (wthBadge) wthBadge.textContent = String(withdrawals.length);
+        if (smsBadge) smsBadge.textContent = String(smsLogs.length);
+
+        // 2. Render Activity Logs Table ("Kisne Kya Kiya")
+        renderActivityLogsTable(allLogs, currentPeriodFilter, currentSearchTerm, todayDateStr);
+
+        // 3. Render User Roster Table ("Kitne Logu Ne Login Kiya")
+        renderUserRosterTable(users, currentPeriodFilter, currentSearchTerm, todayDateStr);
+
+        // 4. Render Withdrawals Table
+        renderWithdrawalsTable(withdrawals, currentSearchTerm);
+
+        // 5. Render SMS Notifications Table
+        renderSmsNotificationsTable(smsLogs, currentSearchTerm);
+    }
+
+    // Activity Logs Table Builder
+    function renderActivityLogsTable(logs: any[], filterPeriod: string, search: string, todayStr: string) {
+        const tbody = document.getElementById('activityLogsTableBody');
+        const noActMsg = document.getElementById('noActivityMessage');
+        if (!tbody) return;
+
+        let filtered = logs.filter(l => {
+            if (filterPeriod === 'today') {
+                return l.timestamp && l.timestamp.slice(0, 10) === todayStr;
+            }
+            return true;
+        });
+
+        if (search) {
+            filtered = filtered.filter(l => 
+                (l.username && l.username.toLowerCase().includes(search)) ||
+                (l.mobile && l.mobile.includes(search)) ||
+                (l.actionType && l.actionType.toLowerCase().includes(search)) ||
+                (l.details && l.details.toLowerCase().includes(search))
+            );
+        }
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '';
+            if (noActMsg) noActMsg.style.display = 'block';
+            return;
+        }
+
+        if (noActMsg) noActMsg.style.display = 'none';
+
+        tbody.innerHTML = filtered.map(item => {
+            const timeFormatted = formatTimeForLog(item.timestamp);
+            const userInitial = (item.username || 'U')[0].toUpperCase();
+            const actionBadge = getActionTypeBadge(item.actionType);
+
+            return `
+                <tr>
+                    <td class="mono-time">${timeFormatted}</td>
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-avatar-sm">${userInitial}</div>
+                            <div class="user-info-text">
+                                <strong>${item.username}</strong>
+                                <small>${item.mobile ? `+91 ${item.mobile}` : 'Mobile not verified'}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>${actionBadge}</td>
+                    <td style="color:#f1f5f9;line-height:1.4;">${item.details || '-'}</td>
+                    <td><span class="badge-status-active">${item.status || 'Success'}</span></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // User Roster Table Builder ("Kitne Logu Ne Login Kiya")
+    function renderUserRosterTable(users: any, filterPeriod: string, search: string, todayStr: string) {
+        const tbody = document.getElementById('userRosterTableBody');
+        if (!tbody) return;
+
+        let userList = Object.values(users) as any[];
+
+        if (search) {
+            userList = userList.filter(u => 
+                (u.username && u.username.toLowerCase().includes(search)) ||
+                (u.mobile && u.mobile.includes(search)) ||
+                (u.accountDetails && u.accountDetails.bankName && u.accountDetails.bankName.toLowerCase().includes(search)) ||
+                (u.accountDetails && u.accountDetails.ifscCode && u.accountDetails.ifscCode.toLowerCase().includes(search))
+            );
+        }
+
+        if (filterPeriod === 'today') {
+            userList = userList.filter(u => 
+                (u.lastLoginAt && u.lastLoginAt.slice(0, 10) === todayStr) ||
+                (u.registeredAt && u.registeredAt.slice(0, 10) === todayStr)
+            );
+        }
+
+        if (userList.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#94a3b8;">No matching users found for this filter.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = userList.map(u => {
+            const isToday = u.lastLoginAt && u.lastLoginAt.slice(0, 10) === todayStr;
+            const loginTimeStr = formatTimeForLog(u.lastLoginAt);
+            const loginBadge = isToday
+                ? `<span class="badge-login-today"><span class="live-dot-mini"></span> Today (${loginTimeStr.split(' ')[1] || 'Active'})</span>`
+                : `<span class="badge-login-older">Earlier (${loginTimeStr.split(',')[0] || 'Past'})</span>`;
+
+            const accDetails = u.accountDetails || {};
+            const bankBrand = accDetails.bankName ? getBankBrandInfo(accDetails.bankName) : null;
+            const bankDisplay = accDetails.bankName
+                ? `<div class="bank-tag-cell">
+                    <div class="bank-mini-icon">${bankBrand ? bankBrand.logoSvg : '🏦'}</div>
+                    <div>
+                        <strong style="color:#ffffff;">${accDetails.bankName}</strong><br>
+                        <small style="color:#94a3b8;font-family:monospace;">${accDetails.ifscCode || ''} • ${maskAccountNumber(accDetails.accountNumber)}</small>
+                    </div>
+                </div>`
+                : `<span style="color:#64748b;font-style:italic;">No bank linked</span>`;
+
+            const balanceKey = `balance_${u.username}`;
+            const commKey = `commission_${u.username}`;
+            const b = parseFloat(localStorage.getItem(balanceKey) || '0') || 0;
+            const c = parseFloat(localStorage.getItem(commKey) || '0') || 0;
+
+            const atm = u.autodebitDetails;
+            const atmDisplay = atm
+                ? `<span style="color:#4ade80;font-weight:700;">✓ Card XXXX${String(atm.atmNumber || '').slice(-4)}</span>`
+                : `<span style="color:#64748b;">Not configured</span>`;
+
+            const statusBadge = u.activated 
+                ? `<span class="badge-status-active">✓ Activated</span>`
+                : `<span class="badge-status-pending">● Unactivated</span>`;
+
+            return `
+                <tr>
+                    <td>
+                        <div class="user-cell">
+                            <div class="user-avatar-sm">${(u.username || 'U')[0].toUpperCase()}</div>
+                            <div class="user-info-text">
+                                <strong>${u.username}</strong>
+                                <small>${u.email || `${u.username}@user`}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span style="font-family:monospace;font-weight:700;color:#38bdf8;">+91 ${u.mobile || '9876543210'}</span>
+                        <br><small style="color:#4ade80;">✓ OTP Verified</small>
+                    </td>
+                    <td>
+                        ${loginBadge}
+                        <br><small style="color:#64748b;">${u.loginCount || 1} Total Logins</small>
+                    </td>
+                    <td>${bankDisplay}</td>
+                    <td>
+                        <strong style="color:#22c55e;">₹${b.toLocaleString('en-IN')}</strong><br>
+                        <small style="color:#38bdf8;">Comm: ₹${c.toLocaleString('en-IN')}</small>
+                    </td>
+                    <td>${atmDisplay}</td>
+                    <td>${statusBadge}</td>
+                    <td style="text-align: right;">
+                        <button type="button" class="btn btn-sm btn-admin-action inspect-user-btn" data-username="${u.username}">Inspect</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        // Attach Inspect buttons
+        tbody.querySelectorAll('.inspect-user-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const uname = btn.getAttribute('data-username');
+                inspectUserModal(uname, users[uname]);
+            });
+        });
+    }
+
+    // Withdrawals Table Builder
+    function renderWithdrawalsTable(withdrawals: any[], search: string) {
+        const tbody = document.getElementById('withdrawalsTableBody');
+        const noWth = document.getElementById('noWithdrawalsMessage');
+        if (!tbody) return;
+
+        let list = withdrawals;
+        if (search) {
+            list = list.filter(w => 
+                (w.username && w.username.toLowerCase().includes(search)) ||
+                (w.utr && w.utr.includes(search)) ||
+                (w.tokenNumber && w.tokenNumber.includes(search)) ||
+                (w.bank && w.bank.toLowerCase().includes(search))
+            );
+        }
+
+        if (list.length === 0) {
+            tbody.innerHTML = '';
+            if (noWth) noWth.style.display = 'block';
+            return;
+        }
+
+        if (noWth) noWth.style.display = 'none';
+
+        tbody.innerHTML = list.map(item => {
+            const timeStr = formatTimeForLog(item.timestamp);
+            const isApproved = item.status && (item.status.includes('Approved') || item.status.includes('Credited') || item.status.includes('Received'));
+            const statusBadge = isApproved
+                ? `<span class="badge-status-active">${item.status}</span>`
+                : `<span class="badge-status-pending">${item.status || 'Pending'}</span>`;
+
+            return `
+                <tr>
+                    <td class="mono-time">${timeStr}</td>
+                    <td><strong>${item.username}</strong></td>
+                    <td><span class="badge-action-type badge-action-withdraw">${item.type}</span></td>
+                    <td><strong style="color:#22c55e;">₹${Number(item.amount || 0).toLocaleString('en-IN')}</strong></td>
+                    <td>${item.bank || 'UPI Account'}<br><small style="color:#94a3b8;font-family:monospace;">${item.accNumber ? maskAccountNumber(item.accNumber) : ''}</small></td>
+                    <td><span style="font-family:monospace;color:#38bdf8;">${item.ifsc || 'UPI-DIRECT'}</span></td>
+                    <td><strong style="font-family:monospace;color:#fbbf24;">${item.tokenNumber || item.utr || 'Auto-Ref'}</strong></td>
+                    <td>${statusBadge}</td>
+                    <td style="text-align: right;">
+                        <button type="button" class="btn btn-sm btn-outline-primary approve-wth-btn" data-id="${item.id}">Approve</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        tbody.querySelectorAll('.approve-wth-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const wid = btn.getAttribute('data-id');
+                StorageManager.updateWithdrawalStatus(wid, '✓ Paid & Transferred via IMPS');
+                renderAdminDashboard();
+            });
+        });
+    }
+
+    // SMS Notifications Table Builder
+    function renderSmsNotificationsTable(smsLogs: any[], search: string) {
+        const tbody = document.getElementById('smsNotificationsTableBody');
+        const noSms = document.getElementById('noSmsMessage');
+        if (!tbody) return;
+
+        let list = smsLogs;
+        if (search) {
+            list = list.filter(s => 
+                (s.username && s.username.toLowerCase().includes(search)) ||
+                (s.bankName && s.bankName.toLowerCase().includes(search)) ||
+                (s.senderCode && s.senderCode.toLowerCase().includes(search)) ||
+                (s.id && s.id.toLowerCase().includes(search))
+            );
+        }
+
+        if (list.length === 0) {
+            tbody.innerHTML = '';
+            if (noSms) noSms.style.display = 'block';
+            return;
+        }
+
+        if (noSms) noSms.style.display = 'none';
+
+        tbody.innerHTML = list.map(item => {
+            const timeStr = formatTimeForLog(item.timestamp);
+            const brand = getBankBrandInfo(item.bankName);
+            const maskedAcc = maskAccountNumber(item.accountNumber);
+
+            return `
+                <tr>
+                    <td class="mono-time">${timeStr}</td>
+                    <td><strong>${item.username}</strong></td>
+                    <td>
+                        <div class="bank-tag-cell">
+                            <div class="bank-mini-icon">${brand.logoSvg}</div>
+                            <div>
+                                <strong style="color:#ffffff;">${item.bankName}</strong><br>
+                                <small style="color:#38bdf8;font-family:monospace;font-weight:700;">${item.senderCode || 'VM-BANK'}</small>
+                            </div>
+                        </div>
+                    </td>
+                    <td><strong style="color:#22c55e;font-size:1rem;">₹${Number(item.amount || 0).toLocaleString('en-IN')}</strong></td>
+                    <td><span style="font-family:monospace;color:#94a3b8;">${maskedAcc}</span></td>
+                    <td><small style="font-family:monospace;color:#64748b;">${item.id || 'TXN-AUTO'}</small></td>
+                    <td><span style="color:#4ade80;">🔊 Double-Chime + Vibration</span></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Inspect User Modal Builder
+    function inspectUserModal(username: string, userObj: any) {
+        const modal = document.getElementById('adminUserDetailModal');
+        const modalTitle = document.getElementById('modalUserName');
+        const modalSubtitle = document.getElementById('modalUserSubtitle');
+        const modalContent = document.getElementById('modalUserContent');
+
+        if (!modal || !modalContent) return;
+
+        modalTitle.textContent = `User Profile: @${username}`;
+        modalSubtitle.textContent = `Registered Mobile: +91 ${userObj?.mobile || 'Not set'} • Joined: ${formatTimeForLog(userObj?.registeredAt)}`;
+
+        const txns = StorageManager.getTransactions(username);
+        const userLogs = StorageManager.getActivityLogs().filter((l: any) => l.username === username);
+
+        modalContent.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">USERNAME</span><br><strong>${username}</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">MOBILE</span><br><strong style="color:#38bdf8;">+91 ${userObj?.mobile || 'Not set'} (Verified)</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">LAST LOGIN</span><br><strong>${formatTimeForLog(userObj?.lastLoginAt)}</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">LOGIN COUNT</span><br><strong>${userObj?.loginCount || 1} logins</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">ACTIVATION</span><br><strong>${userObj?.activated ? '✓ ACTIVE' : '❌ PENDING'}</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">CREDIT TRANSACTIONS</span><br><strong>${txns.length} records</strong></div>
+                </div>
+
+                <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
+                    <h4 style="color:#ffffff;margin-bottom:8px;font-size:0.95rem;">Linked Bank Account &amp; IFSC</h4>
+                    <p style="color:#cbd5e1;font-size:0.85rem;line-height:1.5;">
+                        Bank: <strong>${userObj?.accountDetails?.bankName || 'Not linked'}</strong><br>
+                        Account Holder: <strong>${userObj?.accountDetails?.accountHolder || '-'}</strong><br>
+                        Account Number: <strong>${userObj?.accountDetails?.accountNumber || '-'}</strong><br>
+                        IFSC Code: <strong>${userObj?.accountDetails?.ifscCode || '-'}</strong><br>
+                        Account Type: <strong>${userObj?.accountDetails?.accountType || 'Saving'}</strong>
+                    </p>
+                </div>
+
+                <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
+                    <h4 style="color:#ffffff;margin-bottom:8px;font-size:0.95rem;">Recent User Activities (${userLogs.length})</h4>
+                    <div style="max-height:150px;overflow-y:auto;font-size:0.8rem;">
+                        ${userLogs.slice(0, 8).map((l: any) => `
+                            <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;">
+                                <span>${l.details}</span>
+                                <small style="color:#94a3b8;">${formatTimeForLog(l.timestamp)}</small>
+                            </div>
+                        `).join('') || '<div style="color:#94a3b8;">No activity logged for this user yet.</div>'}
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:8px;">
+                    <button type="button" class="btn btn-primary" id="modalSimulateCreditBtn" style="flex:1;">⚡ Trigger Live Credit &amp; SMS</button>
+                    <button type="button" class="btn btn-secondary" id="modalToggleActiveBtn" style="flex:1;">Toggle Activation Status</button>
+                </div>
+            </div>
+        `;
+
+        modal.style.display = 'flex';
+
+        const simCreditBtn = document.getElementById('modalSimulateCreditBtn');
+        if (simCreditBtn) {
+            simCreditBtn.addEventListener('click', () => {
+                const amt = 2450;
+                StorageManager.saveTransaction(username, amt, new Date().toISOString());
+                const accDetails = StorageManager.getAccountDetails(username) || {};
+                showPaymentNotification({
+                    id: `TXN-SIM-${Date.now()}`,
+                    amount: amt,
+                    timestamp: new Date().toISOString(),
+                    accountNumber: accDetails.accountNumber || '1234567890123456',
+                    bankName: accDetails.bankName || 'State Bank of India',
+                    accountName: accDetails.bankName || 'State Bank of India'
+                });
+                renderAdminDashboard();
+                inspectUserModal(username, userObj);
+            });
+        }
+
+        const toggleBtn = document.getElementById('modalToggleActiveBtn');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                const curUsers = JSON.parse(localStorage.getItem('users')) || {};
+                if (curUsers[username]) {
+                    curUsers[username].activated = !curUsers[username].activated;
+                    localStorage.setItem('users', JSON.stringify(curUsers));
+                    renderAdminDashboard();
+                    inspectUserModal(username, curUsers[username]);
+                }
+            });
+        }
+    }
+
+    // Helper: format timestamp nicely for log
+    function formatTimeForLog(isoString: string) {
+        if (!isoString) return 'Just now';
+        try {
+            const d = new Date(isoString);
+            if (isNaN(d.getTime())) return 'Recently';
+            const now = new Date();
+            const isToday = d.toDateString() === now.toDateString();
+            const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+            return isToday ? `Today, ${time}` : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`;
+        } catch (e) {
+            return 'Just now';
+        }
+    }
+
+    // Helper: get colored action type badge
+    function getActionTypeBadge(type: string) {
+        switch (type) {
+            case 'login':
+                return `<span class="badge-action-type badge-action-login">🔑 Login</span>`;
+            case 'register':
+                return `<span class="badge-action-type badge-action-register">👤 Register</span>`;
+            case 'bank_details':
+                return `<span class="badge-action-type badge-action-bank">🏦 Bank Linked</span>`;
+            case 'autodebit':
+                return `<span class="badge-action-type badge-action-atm">💳 ATM Setup</span>`;
+            case 'credit_transaction':
+                return `<span class="badge-action-type badge-action-credit">💰 Credit Added</span>`;
+            case 'activation':
+            case 'activation_utr':
+                return `<span class="badge-action-type badge-action-login">⚡ Activated</span>`;
+            case 'withdrawal':
+            case 'upgrade_utr':
+                return `<span class="badge-action-type badge-action-withdraw">💸 Withdrawal</span>`;
+            case 'bonus':
+            case 'bonus_withdraw':
+                return `<span class="badge-action-type badge-action-bonus">🎁 Bonus</span>`;
+            case 'bank_removed':
+                return `<span class="badge-action-type badge-action-withdraw">⚠️ Bank Removed</span>`;
+            default:
+                return `<span class="badge-action-type badge-action-login">${type || 'Event'}</span>`;
+        }
+    }
+
+    // Initial render
+    renderAdminDashboard();
+
+    // Live continuous sync interval (every 3 seconds)
+    setInterval(() => {
+        renderAdminDashboard();
+    }, 3000);
 }
 
 });

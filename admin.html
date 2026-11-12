@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Funds - Admin & Backend Control</title>
+    <meta name="description" content="Account Funds Backend Management - Real-time User Activity, Today's Logins, Bank Accounts, and Audit Trail." />
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body class="admin-body">
+    <!-- Top Server Status Banner -->
+    <div class="admin-server-banner">
+        <div class="admin-banner-inner">
+            <span class="live-pulse-dot"></span>
+            <strong>BACKEND AUDIT &amp; REAL-TIME CONTROL PORTAL</strong>
+            <span class="banner-divider">•</span>
+            <span id="adminLiveClock">--:--:--</span>
+            <span class="banner-divider">•</span>
+            <span class="sync-status">🟢 Live LocalStorage Sync Active</span>
+        </div>
+    </div>
+
+    <div class="admin-container">
+        <!-- ADMIN NAVBAR -->
+        <header class="admin-header">
+            <div class="admin-brand">
+                <div class="admin-logo-mark">⚡</div>
+                <div>
+                    <h1 class="admin-title">Account Funds <span class="badge-role">ADMIN BACKEND</span></h1>
+                    <p class="admin-subtitle">Live User Activity Monitor • Today's Logins • Transaction &amp; Withdrawal Engine</p>
+                </div>
+            </div>
+
+            <div class="admin-header-actions">
+                <button type="button" class="btn btn-admin-action" id="adminSimulateLoginBtn" title="Simulate a new user login event to test live logs">
+                    <span>⚡ Simulate Activity</span>
+                </button>
+                <button type="button" class="btn btn-admin-action" id="adminExportJsonBtn" title="Export complete database and activity logs">
+                    <span>📥 Export JSON</span>
+                </button>
+                <a href="dashboard.html" class="btn btn-admin-nav" title="Switch to User Dashboard">
+                    <span>App Dashboard →</span>
+                </a>
+                <a href="index.html" class="btn btn-admin-nav btn-admin-home" title="Switch to Login / Register page">
+                    <span>Home Page</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- DATE FILTER & SEARCH BAR -->
+        <div class="admin-toolbar">
+            <div class="filter-group">
+                <span class="filter-label">Filter Period:</span>
+                <button type="button" class="filter-btn active" data-period="today" id="filterTodayBtn">📅 Today's Activity</button>
+                <button type="button" class="filter-btn" data-period="all" id="filterAllBtn">All Time History</button>
+            </div>
+
+            <div class="admin-search-wrap">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" id="adminSearchInput" placeholder="Search user, mobile (+91), bank name, or IFSC..." autocomplete="off">
+                <button type="button" class="search-clear-btn" id="adminSearchClear" style="display:none;">✕</button>
+            </div>
+
+            <button type="button" class="btn btn-refresh-data" id="adminManualRefreshBtn">
+                <span>🔄 Refresh</span>
+            </button>
+        </div>
+
+        <!-- KEY METRICS OVERVIEW (TODAY'S LOGINS & ACTIVITY) -->
+        <div class="admin-metrics-grid">
+            <div class="admin-metric-card highlight-green">
+                <div class="metric-icon">👥</div>
+                <div class="metric-body">
+                    <span class="metric-title">Today's Logins</span>
+                    <div class="metric-number-row">
+                        <span class="metric-val" id="metricTodayLogins">0</span>
+                        <span class="metric-sub-pill" id="metricDistinctTodayUsers">0 Distinct Users</span>
+                    </div>
+                    <span class="metric-desc">Users logged in today</span>
+                </div>
+            </div>
+
+            <div class="admin-metric-card highlight-cyan">
+                <div class="metric-icon">📱</div>
+                <div class="metric-body">
+                    <span class="metric-title">New Registrations</span>
+                    <div class="metric-number-row">
+                        <span class="metric-val" id="metricTodayRegistrations">0</span>
+                        <span class="metric-sub-pill" id="metricTotalUsersCount">0 Total Accounts</span>
+                    </div>
+                    <span class="metric-desc">Mobile verified users</span>
+                </div>
+            </div>
+
+            <div class="admin-metric-card highlight-gold">
+                <div class="metric-icon">💰</div>
+                <div class="metric-body">
+                    <span class="metric-title">Volume Handled Today</span>
+                    <div class="metric-number-row">
+                        <span class="metric-val" id="metricTodayVolume">₹0</span>
+                    </div>
+                    <span class="metric-desc" id="metricTxnCountToday">0 credit transactions</span>
+                </div>
+            </div>
+
+            <div class="admin-metric-card highlight-purple">
+                <div class="metric-icon">⚡</div>
+                <div class="metric-body">
+                    <span class="metric-title">Commission Due</span>
+                    <div class="metric-number-row">
+                        <span class="metric-val" id="metricTotalCommission">₹0</span>
+                        <span class="metric-sub-pill">3.5% Rate</span>
+                    </div>
+                    <span class="metric-desc">Total platform payout queue</span>
+                </div>
+            </div>
+
+            <div class="admin-metric-card highlight-rose">
+                <div class="metric-icon">🏦</div>
+                <div class="metric-body">
+                    <span class="metric-title">Active Running Accounts</span>
+                    <div class="metric-number-row">
+                        <span class="metric-val" id="metricActiveRunning">0</span>
+                        <span class="metric-sub-pill" id="metricActivatedCount">0 Activated</span>
+                    </div>
+                    <span class="metric-desc">Linked bank accounts active</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN ADMIN TABS -->
+        <div class="admin-tabs-nav">
+            <button type="button" class="admin-tab-btn active" data-tab="activityLogs">
+                <span class="tab-icon">📜</span>
+                <span>User Activity &amp; Audit Logs ("Kisne Kya Kiya")</span>
+                <span class="tab-count-badge" id="activityLogsCountBadge">0</span>
+            </button>
+            <button type="button" class="admin-tab-btn" data-tab="userRoster">
+                <span class="tab-icon">👤</span>
+                <span>User Roster &amp; Login Details ("Kitne Log")</span>
+                <span class="tab-count-badge" id="userRosterCountBadge">0</span>
+            </button>
+            <button type="button" class="admin-tab-btn" data-tab="withdrawalsQueue">
+                <span class="tab-icon">💳</span>
+                <span>Withdrawals &amp; UTR Submissions</span>
+                <span class="tab-count-badge" id="withdrawalsCountBadge">0</span>
+            </button>
+            <button type="button" class="admin-tab-btn" data-tab="smsNotifications">
+                <span class="tab-icon">📲</span>
+                <span>Truecaller SMS Notification Log</span>
+                <span class="tab-count-badge" id="smsNotifCountBadge">0</span>
+            </button>
+        </div>
+
+        <!-- TAB CONTENT 1: ACTIVITY LOGS ("KISNE KYA KIYA") -->
+        <section id="tab-activityLogs" class="admin-tab-panel active">
+            <div class="admin-panel-card">
+                <div class="panel-header-row">
+                    <div>
+                        <h3 class="panel-title">Real-time Activity Audit Trail</h3>
+                        <p class="panel-desc">Chronological log of every user registration, login, IFSC bank linking, autodebit setup, running credit, and withdrawal.</p>
+                    </div>
+                    <div class="panel-actions">
+                        <span class="stream-live-indicator"><span class="pulse-dot"></span> Streaming</span>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="adminClearLogsBtn">Clear Logs</button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="admin-table" id="activityLogsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 170px;">Time</th>
+                                <th style="width: 190px;">User &amp; Mobile</th>
+                                <th style="width: 160px;">Action / Event</th>
+                                <th>Details / Payload</th>
+                                <th style="width: 120px;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activityLogsTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="noActivityMessage" class="empty-state" style="display:none;">
+                    <div class="empty-icon">📭</div>
+                    <h4>No activity records found for this filter</h4>
+                    <p>New logins and actions will automatically stream here in real time.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB CONTENT 2: USER ROSTER ("KITNE LOGU NE LOGIN KIYA") -->
+        <section id="tab-userRoster" class="admin-tab-panel">
+            <div class="admin-panel-card">
+                <div class="panel-header-row">
+                    <div>
+                        <h3 class="panel-title">All Registered User Accounts</h3>
+                        <p class="panel-desc">View registered mobile numbers, IFSC bank details, today's login status, and current live wallet balances.</p>
+                    </div>
+                    <div class="panel-actions">
+                        <button type="button" class="btn btn-sm btn-primary" id="adminCreateTestUserBtn">+ Quick Test User</button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="admin-table" id="userRosterTable">
+                        <thead>
+                            <tr>
+                                <th>User Profile</th>
+                                <th>Mobile &amp; Verification</th>
+                                <th>Today's Login Status</th>
+                                <th>Linked Bank &amp; IFSC</th>
+                                <th>Balance &amp; Commission</th>
+                                <th>ATM Autodebit</th>
+                                <th>Account Status</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userRosterTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB CONTENT 3: WITHDRAWALS & UTR QUEUE -->
+        <section id="tab-withdrawalsQueue" class="admin-tab-panel">
+            <div class="admin-panel-card">
+                <div class="panel-header-row">
+                    <div>
+                        <h3 class="panel-title">Withdrawal Requests &amp; UTR Review Queue</h3>
+                        <p class="panel-desc">Inspect ₹399 activation payments, ₹199 upgrade charges, bonus claims, and commission withdrawal requests.</p>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Date &amp; Time</th>
+                                <th>User</th>
+                                <th>Type</th>
+                                <th>Amount</th>
+                                <th>Bank &amp; Account Number</th>
+                                <th>IFSC Code</th>
+                                <th>Reference / UTR / Token</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="withdrawalsTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="noWithdrawalsMessage" class="empty-state" style="display:none;">
+                    <div class="empty-icon">💸</div>
+                    <h4>No withdrawal requests submitted yet</h4>
+                    <p>Submitted activation UTRs and commission withdrawals will appear here.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB CONTENT 4: SMS NOTIFICATIONS LOG -->
+        <section id="tab-smsNotifications" class="admin-tab-panel">
+            <div class="admin-panel-card">
+                <div class="panel-header-row">
+                    <div>
+                        <h3 class="panel-title">Truecaller In-App Payment SMS Broadcast Log</h3>
+                        <p class="panel-desc">Real-time log of every simulated incoming bank payment notification triggered across active accounts.</p>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Recipient User</th>
+                                <th>Bank / Sender Code</th>
+                                <th>Amount Credited</th>
+                                <th>Masked Account</th>
+                                <th>Transaction ID</th>
+                                <th>Sound &amp; Haptic</th>
+                            </tr>
+                        </thead>
+                        <tbody id="smsNotificationsTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="noSmsMessage" class="empty-state" style="display:none;">
+                    <div class="empty-icon">🔔</div>
+                    <h4>No payment SMS notifications sent yet</h4>
+                    <p>Open Running Account in Dashboard to start generating live bank credits and notifications.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- USER DETAIL MODAL -->
+        <div id="adminUserDetailModal" class="admin-modal-overlay" style="display:none;">
+            <div class="admin-modal-card">
+                <div class="admin-modal-header">
+                    <div>
+                        <h3 id="modalUserName">User Profile</h3>
+                        <p id="modalUserSubtitle" class="admin-modal-subtitle">Full Account &amp; Activity Breakdown</p>
+                    </div>
+                    <button type="button" class="admin-modal-close" id="closeUserModalBtn">✕</button>
+                </div>
+                <div class="admin-modal-body" id="modalUserContent">
+                    <!-- Dynamic content -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IN-APP PAYMENT NOTIFICATION CONTAINER (FOR ADMIN SIMULATION PREVIEWS) -->
+    <div id="paymentNotificationContainer" class="payment-notification-container" aria-live="assertive"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>

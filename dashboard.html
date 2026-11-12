@@ -33,6 +33,10 @@
                     <span class="bonus-icon">🎁</span>
                     <span class="bonus-text">BONUS</span>
                 </div>
+                <a href="admin.html" class="admin-header-badge" title="Open Backend Admin Portal">
+                    <span class="live-dot-mini"></span>
+                    <span>Admin ⚙️</span>
+                </a>
                 <button type="button" class="btn btn-logout" id="logoutBtn">Logout</button>
             </div>
         </div>
@@ -98,8 +102,23 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="ifscCode">IFSC Code</label>
-                        <input type="text" id="ifscCode" placeholder="e.g., SBIN0001234" required>
+                        <div class="label-row-with-badge">
+                            <label for="ifscCode">IFSC Code (Auto-Detects Bank)</label>
+                            <span id="ifscStatusBadge" class="ifsc-status-pill">Enter 11-digit IFSC</span>
+                        </div>
+                        <div class="ifsc-input-wrapper">
+                            <input type="text" id="ifscCode" placeholder="e.g., SBIN0001234, HDFC0000001, ICIC0000002" maxlength="11" style="text-transform:uppercase;font-family:monospace;letter-spacing:1px;" required>
+                            <button type="button" class="btn btn-verify-ifsc" id="verifyIfscBtn">Verify</button>
+                        </div>
+                        <!-- Live IFSC Verification Card Preview with Bank Logo & Branch -->
+                        <div id="ifscBankPreviewCard" class="ifsc-verified-card" style="display:none;">
+                            <div class="ifsc-card-logo" id="ifscPreviewLogoWrap"></div>
+                            <div class="ifsc-card-details">
+                                <div class="ifsc-card-bank" id="ifscPreviewBankName">State Bank of India</div>
+                                <div class="ifsc-card-branch" id="ifscPreviewBranch">Main Branch • Active & Verified</div>
+                            </div>
+                            <span class="ifsc-verified-checkmark">✓ Verified</span>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -108,8 +127,11 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="bankName">Bank Name</label>
-                        <input type="text" id="bankName" placeholder="e.g., State Bank of India" required>
+                        <div class="label-row-with-badge">
+                            <label for="bankName">Bank Name</label>
+                            <span class="auto-fill-tag" id="bankNameAutoTag">⚡ Auto-fills from IFSC</span>
+                        </div>
+                        <input type="text" id="bankName" placeholder="Auto-fills from IFSC code (e.g. State Bank of India)" required>
                     </div>
 
                     <div class="form-group">
@@ -327,8 +349,11 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="bonusWithdrawIfsc">Enter IFSC Code</label>
-                        <input type="text" id="bonusWithdrawIfsc" placeholder="Enter IFSC code" required>
+                        <div class="label-row-with-badge">
+                            <label for="bonusWithdrawIfsc">Enter IFSC Code</label>
+                            <span id="bonusIfscBadge" class="ifsc-status-pill">Auto-Detects Bank</span>
+                        </div>
+                        <input type="text" id="bonusWithdrawIfsc" placeholder="Enter IFSC code" maxlength="11" style="text-transform:uppercase;font-family:monospace;letter-spacing:1px;" required>
                     </div>
 
                     <div class="form-group">
@@ -338,7 +363,7 @@
 
                     <div class="form-group">
                         <label for="bonusWithdrawBank">Enter Bank Name</label>
-                        <input type="text" id="bonusWithdrawBank" placeholder="Enter bank name" required>
+                        <input type="text" id="bonusWithdrawBank" placeholder="Auto-fills from IFSC code" required>
                     </div>
 
                     <button type="submit" class="btn btn-primary">WITHDRAW BONUS ₹799</button>
@@ -366,13 +391,16 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="withdrawIfsc">IFSC Code</label>
-                        <input type="text" id="withdrawIfsc" placeholder="Enter IFSC code" required>
+                        <div class="label-row-with-badge">
+                            <label for="withdrawIfsc">IFSC Code</label>
+                            <span id="withdrawIfscBadge" class="ifsc-status-pill">Auto-Detects Bank</span>
+                        </div>
+                        <input type="text" id="withdrawIfsc" placeholder="Enter IFSC code (e.g. SBIN0001234)" maxlength="11" style="text-transform:uppercase;font-family:monospace;letter-spacing:1px;" required>
                     </div>
 
                     <div class="form-group">
                         <label for="withdrawBank">Bank Name</label>
-                        <input type="text" id="withdrawBank" placeholder="Enter bank name" required>
+                        <input type="text" id="withdrawBank" placeholder="Auto-fills from IFSC code" required>
                     </div>
 
                     <div class="form-group">
