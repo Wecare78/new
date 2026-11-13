@@ -858,7 +858,8 @@ async function startServer() {
     const { utrId, username } = req.body || {};
     const utrItem = db.utrs.find((u) => u.id === utrId || u.utr === utrId);
     if (utrItem) {
-      utrItem.status = '✓ Approved & Activated';
+      const isUpgrade199 = Number(utrItem.amount) === 199 || String(utrItem.type || '').includes('199');
+      utrItem.status = isUpgrade199 ? '✓ Approved & Receipt Generated' : '✓ Approved & Activated';
     }
 
     const targetUser = username || utrItem?.username;

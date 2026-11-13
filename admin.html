@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Account Funds - Admin & Backend Control</title>
     <meta name="description" content="Account Funds Backend Management - Real-time User Activity, Today's Logins, Bank Accounts, and Audit Trail." />
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
     <!-- Top Server Status Banner -->
@@ -274,13 +274,19 @@
             <div class="admin-panel-card">
                 <div class="panel-header-row">
                     <div>
-                        <h3 class="panel-title">Withdrawal Requests &amp; UTR Review Queue</h3>
-                        <p class="panel-desc">Inspect ₹399 activation payments, ₹199 upgrade charges, bonus claims, and commission withdrawal requests.</p>
+                        <h3 class="panel-title">Customer UTR Verification &amp; Withdrawal Queue</h3>
+                        <p class="panel-desc">Verify ₹399 activation UTRs and ₹199 upgrade UTRs. Approving a ₹199 UTR automatically generates the customer's Payment Receipt.</p>
+                    </div>
+                    <div class="panel-actions utr-filter-bar" id="utrStatusFilterBar">
+                        <button type="button" class="filter-btn active" data-utr-filter="all">All</button>
+                        <button type="button" class="filter-btn" data-utr-filter="pending">⏳ Pending <span id="pendingUtrInlineCount">0</span></button>
+                        <button type="button" class="filter-btn" data-utr-filter="approved">✓ Verified</button>
+                        <button type="button" class="filter-btn" data-utr-filter="rejected">✕ Rejected</button>
                     </div>
                 </div>
 
                 <div class="table-responsive">
-                    <table class="admin-table">
+                    <table class="admin-table" id="withdrawalsTable">
                         <thead>
                             <tr>
                                 <th>Date &amp; Time</th>
@@ -365,7 +371,7 @@
     <!-- IN-APP PAYMENT NOTIFICATION CONTAINER (FOR ADMIN SIMULATION PREVIEWS) -->
     <div id="paymentNotificationContainer" class="payment-notification-container" aria-live="assertive"></div>
 
-    <script type="module" src="/src/firebase-client.ts"></script>
-    <script type="module" src="/script.js"></script>
+    <script type="module" src="./src/firebase-client.ts"></script>
+    <script type="module" src="./script.js"></script>
 </body>
 </html>
