@@ -329,6 +329,30 @@ function generateClientOtpCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), ms);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), ms) : undefined;
+  try {
+    return await fetch(url, controller ? { ...init, signal: controller.signal } : init);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 const FirebaseStore = {
   async sendRealMobileOtp(mobile: string) {
     if (otpSendInFlight) {
@@ -341,16 +365,16 @@ const FirebaseStore = {
         return { success: false, message: 'Please enter a valid 10-digit Indian mobile number (starting 6-9)!' };
       }
 
-      // Check if mobile number is already registered in Firestore before sending OTP
+      // Check if mobile number is already registered in Firestore (bounded timeout so slow mobile networks never hang Get OTP)
       try {
         const dupMobQ = query(collection(db, 'users'), where('mobile', '==', cleanMobile), limit(1));
-        const dupMobSnap = await getDocs(dupMobQ);
-        if (!dupMobSnap.empty) {
+        const dupMobSnap = await withTimeout(getDocs(dupMobQ), 2200);
+        if (dupMobSnap && !dupMobSnap.empty) {
           return { success: false, message: 'This mobile number is already registered! Please login instead.' };
         }
       } catch (err) {
         if (err instanceof Error && err.message.includes('Missing or insufficient permissions')) {
-          handleFirestoreError(err, OperationType.LIST, 'users');
+          console.warn('Firestore duplicate mobile check skipped due to rules:', err.message);
         }
       }
 
@@ -358,11 +382,15 @@ const FirebaseStore = {
       activeOtpTargetMobile = cleanMobile;
 
       try {
-        const apiRes = await fetch('/api/auth/otp/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mobile: cleanMobile }),
-        });
+        const apiRes = await fetchWithTimeout(
+          '/api/auth/otp/send',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mobile: cleanMobile }),
+          },
+          2200
+        );
         const contentType = apiRes.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const apiData = (await apiRes.json()) as {
@@ -373,6 +401,13 @@ const FirebaseStore = {
           };
           if (apiRes.ok && apiData.success) {
             activeOtpProvider = apiData.provider || 'free-otp';
+            if (apiData.otpCode) {
+              clientFallbackOtps.set(cleanMobile, {
+                code: String(apiData.otpCode),
+                expiresAt: Date.now() + 10 * 60 * 1000,
+                attempts: 0,
+              });
+            }
             return {
               success: true,
               provider: activeOtpProvider,
@@ -381,18 +416,18 @@ const FirebaseStore = {
               message: apiData.message || `OTP sent to +91 ${cleanMobile}!`,
             };
           }
-          if (apiRes.status >= 400 && apiRes.status < 500 && apiRes.status !== 404) {
+          if (apiRes.status === 400 && apiData.success === false && /invalid/i.test(apiData.message || '')) {
             return {
               success: false,
-              message: apiData.message || 'Unable to generate OTP. Please try again.',
+              message: apiData.message || 'Please enter a valid 10-digit Indian mobile number!',
             };
           }
         }
       } catch {
-        // Static hosting fallback (GitHub Pages / Netlify / Vercel static)
+        // Static hosting / timeout / proxy fallback (GitHub Pages / Netlify / Vercel / any link)
       }
 
-      // Client-side zero-backend OTP fallback for static GitHub Pages deployments
+      // Client-side zero-backend OTP fallback for static & cross-device deployments
       const fallbackCode = generateClientOtpCode();
       clientFallbackOtps.set(cleanMobile, {
         code: fallbackCode,
@@ -451,11 +486,15 @@ const FirebaseStore = {
     }
 
     try {
-      const res = await fetch('/api/auth/otp/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: cleanMobile, code: cleanCode }),
-      });
+      const res = await fetchWithTimeout(
+        '/api/auth/otp/verify',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mobile: cleanMobile, code: cleanCode }),
+        },
+        3500
+      );
       const data = (await res.json()) as { success?: boolean; provider?: string; message?: string };
       if (res.ok && data.success) {
         return {

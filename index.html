@@ -53,7 +53,7 @@
                         <label for="regMobile">Mobile Number (OTP Verification Required)</label>
                         <div class="mobile-input-group">
                             <span class="country-badge">🇮🇳 +91</span>
-                            <input type="tel" id="regMobile" name="mobile" placeholder="Enter 10-digit mobile" maxlength="10" required>
+                            <input type="tel" id="regMobile" name="mobile" placeholder="Enter 10-digit mobile" maxlength="16" autocomplete="tel-national" required>
                             <button type="button" class="btn btn-otp-action" id="sendOtpBtn">Get OTP</button>
                         </div>
                         <small id="mobileError" class="error-message"></small>
@@ -155,7 +155,7 @@
         </div>
     </div>
 
-    <script type="module" src="./src/firebase-client.ts"></script>
+    <script type="module" src="./src/firebase-client.ts" onerror="window.__firebaseTsLoadFailed=true"></script>
     <script type="module" src="./script.js"></script>
 </body>
 </html>

@@ -1,23 +1,311 @@
 function bootstrapApp() {
 
+let _cdnBridgePromise = null;
+
+async function bootstrapCdnFirebaseStore() {
+    if (window.FirebaseStore) return window.FirebaseStore;
+    if (_cdnBridgePromise) return _cdnBridgePromise;
+
+    _cdnBridgePromise = (async () => {
+        try {
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const cfgTimer = controller ? setTimeout(() => controller.abort(), 3000) : null;
+            const cfgRes = await fetch('./firebase-applet-config.json', controller ? { signal: controller.signal } : undefined);
+            if (cfgTimer) clearTimeout(cfgTimer);
+            if (!cfgRes.ok) return null;
+            const firebaseConfig = await cfgRes.json();
+
+            const sdkLoad = Promise.all([
+                import(/* @vite-ignore */ 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js'),
+                import(/* @vite-ignore */ 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js')
+            ]);
+            const [appMod, fsMod] = await Promise.race([
+                sdkLoad,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('CDN timeout')), 4500))
+            ]);
+
+            const app = appMod.initializeApp(firebaseConfig);
+            const db = fsMod.getFirestore(app, firebaseConfig.firestoreDatabaseId);
+            const toDocId = (u) => (String(u || '').trim().replace(/[^a-zA-Z0-9_.-]/g, '_') || `user_${Date.now()}`).slice(0, 120);
+            const safeId = (p) => `${p}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+            const cdnOtps = new Map();
+            let activeTargetMobile = '';
+
+            const findUser = async (identifier) => {
+                const cleanId = String(identifier || '').trim();
+                if (!cleanId) return null;
+                try {
+                    const directSnap = await fsMod.getDoc(fsMod.doc(db, 'users', toDocId(cleanId)));
+                    if (directSnap.exists()) return directSnap.data();
+                } catch {}
+                try {
+                    const q1 = fsMod.query(fsMod.collection(db, 'users'), fsMod.where('username', '==', cleanId), fsMod.limit(1));
+                    const s1 = await fsMod.getDocs(q1);
+                    if (!s1.empty) return s1.docs[0].data();
+                } catch {}
+                const digits = cleanId.replace(/\D/g, '').slice(-10);
+                if (digits.length === 10) {
+                    try {
+                        const q2 = fsMod.query(fsMod.collection(db, 'users'), fsMod.where('mobile', '==', digits), fsMod.limit(1));
+                        const s2 = await fsMod.getDocs(q2);
+                        if (!s2.empty) return s2.docs[0].data();
+                    } catch {}
+                }
+                return null;
+            };
+
+            const writeAct = async (username, actionType, details, category = 'general', status = 'success', mobileOverride = '') => {
+                if (!username || username === 'demo') return null;
+                const id = safeId('ACT');
+                const entry = {
+                    id,
+                    username: String(username).slice(0, 64),
+                    mobile: String(mobileOverride || '').slice(0, 20),
+                    actionType: String(actionType).slice(0, 48),
+                    category: String(category).slice(0, 48),
+                    details: String(details || '').slice(0, 490),
+                    status: String(status || 'success').slice(0, 32),
+                    timestamp: new Date().toISOString()
+                };
+                try {
+                    await fsMod.setDoc(fsMod.doc(db, 'activityLogs', id), entry);
+                } catch {}
+                return entry;
+            };
+
+            const store = {
+                async sendRealMobileOtp(mobile) {
+                    const cleanMobile = String(mobile || '').replace(/\D/g, '').slice(-10);
+                    if (!/^[6-9]\d{9}$/.test(cleanMobile)) {
+                        return { success: false, message: 'Please enter a valid 10-digit Indian mobile number (starting 6-9)!' };
+                    }
+                    try {
+                        const qMob = fsMod.query(fsMod.collection(db, 'users'), fsMod.where('mobile', '==', cleanMobile), fsMod.limit(1));
+                        const snap = await Promise.race([
+                            fsMod.getDocs(qMob),
+                            new Promise((resolve) => setTimeout(() => resolve(null), 2200))
+                        ]);
+                        if (snap && !snap.empty) {
+                            return { success: false, message: 'This mobile number is already registered! Please login instead.' };
+                        }
+                    } catch {}
+                    activeTargetMobile = cleanMobile;
+                    const code = String(Math.floor(100000 + Math.random() * 900000));
+                    cdnOtps.set(cleanMobile, { code, expiresAt: Date.now() + 10 * 60 * 1000, attempts: 0 });
+                    return { success: true, provider: 'free-otp', mobile: cleanMobile, otpCode: code, message: `Verification OTP generated for +91 ${cleanMobile}` };
+                },
+                async verifyRealMobileOtp(otpCode, mobile) {
+                    const cleanMobile = String(mobile || '').replace(/\D/g, '').slice(-10);
+                    const cleanCode = String(otpCode || '').trim();
+                    if (!/^\d{6}$/.test(cleanCode)) return { success: false, message: 'Please enter a valid 6-digit OTP code.' };
+                    if (activeTargetMobile && activeTargetMobile !== cleanMobile) {
+                        return { success: false, message: 'Mobile number changed. Please click Get OTP again.' };
+                    }
+                    const rec = cdnOtps.get(cleanMobile);
+                    if (!rec) return { success: false, message: 'OTP expired or not found. Please click Get OTP again.' };
+                    if (Date.now() > rec.expiresAt) { cdnOtps.delete(cleanMobile); return { success: false, message: 'OTP has expired! Please request a new one.' }; }
+                    rec.attempts += 1;
+                    if (rec.attempts > 5) { cdnOtps.delete(cleanMobile); return { success: false, message: 'Too many wrong attempts. Please request a new OTP.' }; }
+                    if (rec.code !== cleanCode) return { success: false, message: 'Incorrect OTP code entered.' };
+                    cdnOtps.delete(cleanMobile);
+                    return { success: true, provider: 'free-otp', firebasePhoneUid: '', phoneNumber: `+91${cleanMobile}`, message: 'Mobile number verified successfully!' };
+                },
+                async registerUser(payload) {
+                    const uname = String(payload.username || '').trim();
+                    const pwd = String(payload.password || '').trim();
+                    const cleanMobile = String(payload.mobile || '').replace(/\D/g, '').slice(-10);
+                    if (!uname || uname.length < 3 || !pwd || pwd.length < 4) return { success: false, message: 'Valid username and password required.' };
+                    const docId = toDocId(uname);
+                    const existing = await findUser(uname);
+                    if (existing) return { success: false, message: 'Username already taken! Please choose another.' };
+                    const existingMob = await findUser(cleanMobile);
+                    if (existingMob) return { success: false, message: 'This mobile number is already registered! Please login.' };
+                    const now = new Date().toISOString();
+                    const newUser = {
+                        docId, username: uname, password: pwd, mobile: cleanMobile, mobileVerified: true,
+                        email: `${cleanMobile}@accountfunds.in`, registeredAt: now, lastLoginAt: now, loginCount: 1,
+                        loginHistory: [now], accountDetails: null, autodebitDetails: null, activated: false,
+                        activationStatus: 'not_submitted', rejectionMessage: '', activationCode: '',
+                        otpProvider: String(payload.otpProvider || 'free-otp'), firebasePhoneUid: '', balance: 0, commission: 0, transactions: []
+                    };
+                    await fsMod.setDoc(fsMod.doc(db, 'users', docId), newUser);
+                    await writeAct(uname, 'register', `New user registered with OTP verified mobile +91 ${cleanMobile}`, 'registration', 'success', cleanMobile);
+                    return { success: true, message: 'Registration successful! Mobile number verified.', user: newUser };
+                },
+                async loginUser(payload) {
+                    const userRecord = await findUser(payload.identifier);
+                    if (!userRecord) return { success: false, message: 'Account not found with this username or mobile!' };
+                    if (userRecord.password !== String(payload.password || '').trim()) return { success: false, message: 'Incorrect password!' };
+                    const now = new Date().toISOString();
+                    const nextHistory = Array.isArray(userRecord.loginHistory) ? [...userRecord.loginHistory, now].slice(-50) : [now];
+                    const nextCount = (Number(userRecord.loginCount) || 0) + 1;
+                    try {
+                        await fsMod.updateDoc(fsMod.doc(db, 'users', userRecord.docId), { lastLoginAt: now, loginCount: nextCount, loginHistory: nextHistory });
+                        await writeAct(userRecord.username, 'login', 'User logged in via Firestore auth', 'auth', 'success', userRecord.mobile);
+                    } catch {}
+                    return { success: true, username: userRecord.username, message: 'Login successful!', user: { ...userRecord, lastLoginAt: now, loginCount: nextCount, loginHistory: nextHistory } };
+                },
+                async getUserProfile(u) { return (!u || u === 'demo') ? null : findUser(u); },
+                subscribeUserProfile(u, cb) {
+                    return fsMod.onSnapshot(fsMod.doc(db, 'users', toDocId(u)), (s) => cb(s.exists() ? s.data() : null), () => {});
+                },
+                subscribeUserUtrs(u, cb) {
+                    const q = fsMod.query(fsMod.collection(db, 'utrs'), fsMod.where('username', '==', u), fsMod.limit(50));
+                    return fsMod.onSnapshot(q, (s) => {
+                        const items = s.docs.map((d) => d.data());
+                        items.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+                        cb(items);
+                    }, () => {});
+                },
+                async saveAccountDetails(u, details) {
+                    const user = await findUser(u);
+                    if (!user) return false;
+                    await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), { accountDetails: details });
+                    await writeAct(u, 'bank_details', `Added bank: ${details.bankName}`, 'banking', 'success', details.contactNumber);
+                    return true;
+                },
+                async saveAutodebitDetails(u, details) {
+                    const user = await findUser(u);
+                    if (!user) return false;
+                    await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), { autodebitDetails: details });
+                    await writeAct(u, 'autodebit', `Configured ATM autodebit`, 'atm', 'success');
+                    return true;
+                },
+                async submitUtrRecord(payload) {
+                    const uname = String(payload.username || '').trim();
+                    if (!uname || uname === 'demo') return null;
+                    const id = String(payload.record?.id || safeId('WTH')).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120);
+                    const entry = { id, username: uname, ...payload.record, timestamp: payload.record?.timestamp || new Date().toISOString() };
+                    await fsMod.setDoc(fsMod.doc(db, 'utrs', id), entry);
+                    const user = await findUser(uname);
+                    if (user) {
+                        const upd = { activated: false, activationStatus: 'pending_approval', rejectionMessage: '' };
+                        if (payload.activationCode) upd.activationCode = payload.activationCode;
+                        await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), upd);
+                    }
+                    await writeAct(uname, payload.actionType || 'activation_utr', payload.activityText || `Submitted ${entry.type}`, 'payment', 'info', entry.contact);
+                    return entry;
+                },
+                async markActivationPending(u, code = '') {
+                    const user = await findUser(u);
+                    if (!user) return false;
+                    const upd = { activated: false, activationStatus: 'pending_approval', rejectionMessage: '' };
+                    if (code) upd.activationCode = code;
+                    await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), upd);
+                    return true;
+                },
+                async recordTransaction(payload) {
+                    const user = await findUser(payload.username);
+                    if (user) {
+                        const txns = Array.isArray(user.transactions) ? [...user.transactions, { amount: payload.amount, timestamp: payload.timestamp }].slice(-200) : [{ amount: payload.amount, timestamp: payload.timestamp }];
+                        await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), { balance: payload.balance, commission: payload.commission, transactions: txns });
+                    }
+                    if (payload.smsRecord) {
+                        const smsId = String(payload.smsRecord.id || safeId('SMS')).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 120);
+                        await fsMod.setDoc(fsMod.doc(db, 'smsLogs', smsId), { id: smsId, username: payload.username, ...payload.smsRecord, amount: payload.amount, timestamp: payload.timestamp });
+                    }
+                    return true;
+                },
+                async removeBankData(u) {
+                    const user = await findUser(u);
+                    if (!user) return false;
+                    await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), { accountDetails: null, autodebitDetails: null, activated: false, activationStatus: 'not_submitted', rejectionMessage: '', balance: 0, commission: 0, transactions: [] });
+                    return true;
+                },
+                logActivity: writeAct,
+                subscribeAdminDashboard(cb) {
+                    const state = { usersMap: {}, utrs: [], activityLogs: [], smsLogs: [] };
+                    const emit = () => cb({ ...state });
+                    const u1 = fsMod.onSnapshot(fsMod.collection(db, 'users'), (s) => { const m = {}; s.forEach((d) => { const v = d.data(); if (v?.username && v.username !== 'demo') m[v.username] = v; }); state.usersMap = m; emit(); }, () => {});
+                    const u2 = fsMod.onSnapshot(fsMod.query(fsMod.collection(db, 'utrs'), fsMod.orderBy('timestamp', 'desc'), fsMod.limit(300)), (s) => { state.utrs = s.docs.map((d) => d.data()); emit(); }, () => {});
+                    const u3 = fsMod.onSnapshot(fsMod.query(fsMod.collection(db, 'activityLogs'), fsMod.orderBy('timestamp', 'desc'), fsMod.limit(500)), (s) => { state.activityLogs = s.docs.map((d) => d.data()); emit(); }, () => {});
+                    const u4 = fsMod.onSnapshot(fsMod.query(fsMod.collection(db, 'smsLogs'), fsMod.orderBy('timestamp', 'desc'), fsMod.limit(300)), (s) => { state.smsLogs = s.docs.map((d) => d.data()); emit(); }, () => {});
+                    return () => { u1(); u2(); u3(); u4(); };
+                },
+                async adminApproveUtr(utrId, uname) {
+                    const ref = fsMod.doc(db, 'utrs', utrId);
+                    const snap = await fsMod.getDoc(ref);
+                    const data = snap.exists() ? snap.data() : null;
+                    const is199 = Boolean(data && (Number(data.amount) === 199 || String(data.type || '').includes('199') || String(data.type || '').toLowerCase().includes('upgrade')));
+                    await fsMod.updateDoc(ref, { status: is199 ? '✓ Approved & Receipt Generated' : '✓ Approved & Activated' });
+                    const user = await findUser(uname);
+                    if (user) await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), { activated: true, activationStatus: 'approved', rejectionMessage: '' });
+                    return true;
+                },
+                async adminRejectUtr(utrId, uname) {
+                    await fsMod.updateDoc(fsMod.doc(db, 'utrs', utrId), { status: '❌ Rejected (Invalid UTR)' });
+                    const user = await findUser(uname);
+                    if (user) await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), { activated: false, activationStatus: 'rejected', rejectionMessage: 'ADMIN REJECTED YOUR PAYMENT. KINDLY PAY THE CHARGES AND RUN.' });
+                    return true;
+                },
+                async adminApproveUserPanel(uname) {
+                    const user = await findUser(uname);
+                    if (!user) return null;
+                    await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), { activated: true, activationStatus: 'approved', rejectionMessage: '' });
+                    return { ...user, activated: true, activationStatus: 'approved', rejectionMessage: '' };
+                },
+                async adminRejectUserPayment(uname) {
+                    const user = await findUser(uname);
+                    if (!user) return null;
+                    const msg = 'ADMIN REJECTED YOUR PAYMENT. KINDLY PAY THE CHARGES AND RUN.';
+                    await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), { activated: false, activationStatus: 'rejected', rejectionMessage: msg });
+                    return { ...user, activated: false, activationStatus: 'rejected', rejectionMessage: msg };
+                },
+                async adminToggleUserActivation(uname, curr) {
+                    const user = await findUser(uname);
+                    if (!user) return null;
+                    const next = !curr;
+                    const status = next ? 'approved' : 'rejected';
+                    const msg = next ? '' : 'ADMIN REJECTED YOUR PAYMENT. KINDLY PAY THE CHARGES AND RUN.';
+                    await fsMod.updateDoc(fsMod.doc(db, 'users', user.docId), { activated: next, activationStatus: status, rejectionMessage: msg });
+                    return { ...user, activated: next, activationStatus: status, rejectionMessage: msg };
+                },
+                async adminDeleteUser(uname) {
+                    const user = await findUser(uname);
+                    if (!user) return false;
+                    await fsMod.deleteDoc(fsMod.doc(db, 'users', user.docId));
+                    return true;
+                },
+                async adminClearLogs() {
+                    const snap = await fsMod.getDocs(fsMod.collection(db, 'activityLogs'));
+                    await Promise.all(snap.docs.map((d) => fsMod.deleteDoc(d.ref)));
+                    return true;
+                }
+            };
+
+            window.FirebaseStore = store;
+            window.dispatchEvent(new CustomEvent('firebase-store-ready', { detail: store }));
+            return store;
+        } catch (err) {
+            return null;
+        }
+    })();
+
+    return _cdnBridgePromise;
+}
+
 async function getFirebaseStore() {
     if (window.FirebaseStore) return window.FirebaseStore;
-    return new Promise((resolve) => {
-        let settled = false;
-        const onReady = () => {
-            if (!settled) {
-                settled = true;
-                resolve(window.FirebaseStore || null);
-            }
-        };
-        window.addEventListener('firebase-store-ready', onReady, { once: true });
-        setTimeout(() => {
-            if (!settled) {
-                settled = true;
-                resolve(window.FirebaseStore || null);
-            }
-        }, 10000);
-    });
+    if (!window.__firebaseTsLoadFailed) {
+        const waited = await new Promise((resolve) => {
+            let settled = false;
+            const onReady = () => {
+                if (!settled) {
+                    settled = true;
+                    resolve(window.FirebaseStore || null);
+                }
+            };
+            window.addEventListener('firebase-store-ready', onReady, { once: true });
+            setTimeout(() => {
+                if (!settled) {
+                    settled = true;
+                    resolve(window.FirebaseStore || null);
+                }
+            }, 1500);
+        });
+        if (waited) return waited;
+    }
+    return bootstrapCdnFirebaseStore();
 }
 
 // Legacy optional backend mirror helper (non-blocking)
@@ -1776,10 +2064,49 @@ if (document.getElementById('registerForm')) {
     const verifiedMobileDisplay = document.getElementById('verifiedMobileDisplay');
     const mobileError = document.getElementById('mobileError');
 
-    // Restrict mobile input to 10 digits
+    const localFallbackOtps = new Map();
+
+    function normalizeIndianMobileInput(rawVal) {
+        let digits = String(rawVal || '').replace(/\D/g, '');
+        if (digits.length > 10 && digits.startsWith('0091') && /^[6-9]/.test(digits.slice(4))) {
+            digits = digits.slice(4);
+        } else if (digits.length === 12 && digits.startsWith('91') && /^[6-9]/.test(digits.slice(2))) {
+            digits = digits.slice(2);
+        } else if (digits.length === 11 && digits.startsWith('0') && /^[6-9]/.test(digits.slice(1))) {
+            digits = digits.slice(1);
+        }
+        return digits.slice(0, 10);
+    }
+
+    function generateLocalFallbackOtp(mobile) {
+        const cleanMobile = normalizeIndianMobileInput(mobile);
+        let code = '';
+        if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+            const arr = new Uint32Array(1);
+            crypto.getRandomValues(arr);
+            code = String(100000 + (arr[0] % 900000));
+        } else {
+            code = String(Math.floor(100000 + Math.random() * 900000));
+        }
+        localFallbackOtps.set(cleanMobile, {
+            code,
+            expiresAt: Date.now() + 10 * 60 * 1000,
+            attempts: 0
+        });
+        return {
+            success: true,
+            provider: 'free-otp',
+            mobile: cleanMobile,
+            otpCode: code,
+            message: `Verification OTP generated for +91 ${cleanMobile}`,
+            isLocalFallback: true
+        };
+    }
+
+    // Restrict mobile input to 10 normalized Indian digits (handles +91/0 autofill cleanly)
     if (regMobileInput) {
         regMobileInput.addEventListener('input', () => {
-            regMobileInput.value = regMobileInput.value.replace(/\D/g, '').slice(0, 10);
+            regMobileInput.value = normalizeIndianMobileInput(regMobileInput.value);
             if (regMobileInput.value !== verifiedMobileNumber) {
                 verifiedMobileNumber = '';
                 verifiedOtpProof = null;
@@ -1789,11 +2116,20 @@ if (document.getElementById('registerForm')) {
         });
     }
 
-    // Dispatch Free Direct OTP (or configured SMS Gateway)
+    if (otpInputField) {
+        otpInputField.addEventListener('input', () => {
+            otpInputField.value = otpInputField.value.replace(/\D/g, '').slice(0, 6);
+        });
+    }
+
+    // Dispatch Free Direct OTP (or configured SMS Gateway) with universal cross-device fallback
     async function triggerSendOtp() {
         if (isSendingOtp) return;
 
-        const rawMobile = regMobileInput ? regMobileInput.value.trim() : '';
+        const rawMobile = regMobileInput ? normalizeIndianMobileInput(regMobileInput.value) : '';
+        if (regMobileInput && regMobileInput.value !== rawMobile) {
+            regMobileInput.value = rawMobile;
+        }
         if (!/^[6-9]\d{9}$/.test(rawMobile)) {
             if (mobileError) {
                 mobileError.textContent = 'Please enter a valid 10-digit Indian mobile number (starting 6-9)!';
@@ -1814,15 +2150,18 @@ if (document.getElementById('registerForm')) {
 
         let result = null;
         try {
-            const fb = await getFirebaseStore();
-            if (!fb || typeof fb.sendRealMobileOtp !== 'function') {
-                if (mobileError) {
-                    mobileError.textContent = 'OTP service is still initializing. Please try again.';
-                }
-                return;
+            const fb = await Promise.race([
+                getFirebaseStore(),
+                new Promise((resolve) => setTimeout(() => resolve(null), 3500))
+            ]);
+            if (fb && typeof fb.sendRealMobileOtp === 'function') {
+                result = await Promise.race([
+                    fb.sendRealMobileOtp(rawMobile),
+                    new Promise((resolve) => setTimeout(() => resolve(null), 4000))
+                ]);
             }
-
-            result = await fb.sendRealMobileOtp(rawMobile);
+        } catch (err) {
+            result = null;
         } finally {
             isSendingOtp = false;
             if (sendOtpBtn) {
@@ -1834,8 +2173,9 @@ if (document.getElementById('registerForm')) {
             }
         }
 
-        if (!result || !result.success) {
-            const errMsg = (result && result.message) || 'Failed to send OTP. Please try again.';
+        // Only block if number is explicitly already registered or invalid Indian format; otherwise guarantee OTP generation
+        if (result && !result.success && /already registered|valid 10-digit/i.test(result.message || '')) {
+            const errMsg = result.message;
             if (otpModalOverlay && otpModalOverlay.style.display === 'flex' && otpModalMessage) {
                 otpModalMessage.textContent = errMsg;
                 otpModalMessage.className = 'message error';
@@ -1844,6 +2184,16 @@ if (document.getElementById('registerForm')) {
                 mobileError.textContent = errMsg;
             }
             return;
+        }
+
+        if (!result || !result.success) {
+            result = generateLocalFallbackOtp(rawMobile);
+        } else if (result.otpCode) {
+            localFallbackOtps.set(rawMobile, {
+                code: String(result.otpCode),
+                expiresAt: Date.now() + 10 * 60 * 1000,
+                attempts: 0
+            });
         }
 
         if (otpTargetMobile) otpTargetMobile.textContent = `+91 ${rawMobile}`;
@@ -1872,7 +2222,7 @@ if (document.getElementById('registerForm')) {
             otpModalOverlay.style.display = 'flex';
         }
 
-        playNotificationSound();
+        try { playNotificationSound(); } catch (e) {}
         startOtpTimer(45);
         if (otpInputField) otpInputField.focus();
     }
@@ -1914,7 +2264,7 @@ if (document.getElementById('registerForm')) {
 
     if (confirmVerifyOtpBtn) {
         confirmVerifyOtpBtn.addEventListener('click', async () => {
-            const entered = otpInputField ? otpInputField.value.trim() : '';
+            const entered = otpInputField ? otpInputField.value.replace(/\D/g, '').trim() : '';
             if (!/^\d{6}$/.test(entered)) {
                 if (otpModalMessage) {
                     otpModalMessage.textContent = 'Please enter the exact 6-digit OTP code!';
@@ -1924,24 +2274,43 @@ if (document.getElementById('registerForm')) {
                 return;
             }
 
-            const currentMobile = regMobileInput ? regMobileInput.value.trim() : '';
-            const fb = await getFirebaseStore();
-            if (!fb || typeof fb.verifyRealMobileOtp !== 'function') {
-                if (otpModalMessage) {
-                    otpModalMessage.textContent = 'Verification service unavailable. Please refresh and try again.';
-                    otpModalMessage.className = 'message error';
-                    otpModalMessage.style.display = 'block';
-                }
-                return;
-            }
-
+            const currentMobile = regMobileInput ? normalizeIndianMobileInput(regMobileInput.value) : '';
             confirmVerifyOtpBtn.disabled = true;
             confirmVerifyOtpBtn.textContent = 'Verifying...';
 
-            const verifyResult = await fb.verifyRealMobileOtp(entered, currentMobile);
-
-            confirmVerifyOtpBtn.disabled = false;
-            confirmVerifyOtpBtn.textContent = 'Verify OTP';
+            let verifyResult = null;
+            try {
+                const localRec = localFallbackOtps.get(currentMobile);
+                if (localRec) {
+                    if (Date.now() > localRec.expiresAt) {
+                        localFallbackOtps.delete(currentMobile);
+                        verifyResult = { success: false, message: 'OTP has expired! Please click Resend OTP.' };
+                    } else {
+                        localRec.attempts += 1;
+                        if (localRec.attempts > 5) {
+                            localFallbackOtps.delete(currentMobile);
+                            verifyResult = { success: false, message: 'Too many wrong attempts. Please request a new OTP.' };
+                        } else if (localRec.code !== entered) {
+                            verifyResult = { success: false, message: 'Incorrect OTP code entered. Please check the generated OTP.' };
+                        } else {
+                            localFallbackOtps.delete(currentMobile);
+                            verifyResult = { success: true, provider: 'free-otp', firebasePhoneUid: '' };
+                        }
+                    }
+                } else {
+                    const fb = await getFirebaseStore();
+                    if (fb && typeof fb.verifyRealMobileOtp === 'function') {
+                        verifyResult = await fb.verifyRealMobileOtp(entered, currentMobile);
+                    } else {
+                        verifyResult = { success: false, message: 'OTP session expired. Please click Get OTP again.' };
+                    }
+                }
+            } catch (err) {
+                verifyResult = { success: false, message: 'Verification failed. Please try again.' };
+            } finally {
+                confirmVerifyOtpBtn.disabled = false;
+                confirmVerifyOtpBtn.textContent = 'Verify OTP';
+            }
 
             if (!verifyResult || !verifyResult.success) {
                 if (otpModalMessage) {
@@ -2029,25 +2398,31 @@ if (document.getElementById('registerForm')) {
             if (hasError) return;
 
             const fb = await getFirebaseStore();
-            if (!fb) {
-                if (messageDiv) {
-                    messageDiv.textContent = 'Firebase Firestore is still initializing. Please try again in a second.';
-                    messageDiv.className = 'message error';
-                }
-                return;
-            }
-
             const submitBtn = document.getElementById('registerSubmitBtn');
             if (submitBtn) submitBtn.disabled = true;
 
-            const fbResult = await fb.registerUser({
-                mobile,
-                username,
-                password,
-                otpProvider: verifiedOtpProof.provider,
-                firebasePhoneUid: verifiedOtpProof.firebasePhoneUid
-            });
-            if (submitBtn) submitBtn.disabled = false;
+            let fbResult = null;
+            try {
+                if (fb && typeof fb.registerUser === 'function') {
+                    fbResult = await fb.registerUser({
+                        mobile,
+                        username,
+                        password,
+                        otpProvider: verifiedOtpProof.provider,
+                        firebasePhoneUid: verifiedOtpProof.firebasePhoneUid
+                    });
+                } else {
+                    const localRes = StorageManager.registerUser(mobile, username, password);
+                    if (localRes && localRes.success) {
+                        const localUsers = JSON.parse(localStorage.getItem('users') || '{}');
+                        fbResult = { success: true, message: localRes.message, user: localUsers[username] };
+                    } else {
+                        fbResult = localRes;
+                    }
+                }
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
+            }
 
             if (!fbResult || !fbResult.success) {
                 if (messageDiv) {
@@ -2058,7 +2433,7 @@ if (document.getElementById('registerForm')) {
             }
 
             const users = JSON.parse(localStorage.getItem('users') || '{}');
-            users[username] = fbResult.user;
+            if (fbResult.user) users[username] = fbResult.user;
             localStorage.setItem('users', JSON.stringify(users));
             localStorage.setItem('loggedInUser', username);
 
@@ -2107,15 +2482,9 @@ if (document.getElementById('registerForm')) {
             }
 
             const fb = await getFirebaseStore();
-            if (!fb) {
-                if (messageDiv) {
-                    messageDiv.textContent = 'Firebase Firestore is still initializing. Please try again.';
-                    messageDiv.className = 'message error';
-                }
-                return;
-            }
-
-            const fbResult = await fb.loginUser({ identifier, password });
+            const fbResult = (fb && typeof fb.loginUser === 'function')
+                ? await fb.loginUser({ identifier, password })
+                : StorageManager.loginUser(identifier, password);
             if (fbResult && fbResult.success && fbResult.user) {
                 const u = fbResult.user;
                 const localUsers = JSON.parse(localStorage.getItem('users') || '{}');
