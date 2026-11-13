@@ -3,6 +3,16 @@
   "utrs": [],
   "activityLogs": [
     {
+      "id": "ACT-1794590779728-8950",
+      "username": "ADMIN_AUTH",
+      "mobile": "",
+      "actionType": "login_failed",
+      "category": "security",
+      "details": "Failed Admin Portal login attempt",
+      "status": "failed",
+      "timestamp": "2026-11-13T17:26:19.728Z"
+    },
+    {
       "id": "ACT-1794586863631-6636",
       "username": "ADMIN_AUTH",
       "mobile": "",
@@ -16,6 +26,8 @@
   "smsLogs": [],
   "adminTokens": [
     "ADMIN-1794586117924-8dpr9a95",
-    "ADMIN-1794586876878-1zrnq0e5"
+    "ADMIN-1794586876878-1zrnq0e5",
+    "ADMIN-1794590779735-icle7qbl",
+    "ADMIN-1794590779740-zc6yx8sw"
   ]
 }

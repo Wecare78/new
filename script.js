@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+function bootstrapApp() {
 
 async function getFirebaseStore() {
     if (window.FirebaseStore) return window.FirebaseStore;
@@ -16,7 +16,7 @@ async function getFirebaseStore() {
                 settled = true;
                 resolve(window.FirebaseStore || null);
             }
-        }, 2500);
+        }, 10000);
     });
 }
 
@@ -3363,13 +3363,26 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     }
 
     function getAdminToken() {
-        return sessionStorage.getItem('admin_token') || '';
+        return sessionStorage.getItem('admin_token') || localStorage.getItem('admin_token') || '';
+    }
+
+    function isAdminSessionActive() {
+        const sAuth = sessionStorage.getItem('admin_authenticated') === 'true';
+        const lAuth = localStorage.getItem('admin_authenticated') === 'true';
+        return (sAuth || lAuth) && !!getAdminToken();
     }
 
     async function startAdminFirestoreSubscription() {
         if (unsubscribeAdminFirestore) return;
-        const fb = await getFirebaseStore();
-        if (!fb) return;
+        let fb = await getFirebaseStore();
+        if (!fb) {
+            setTimeout(() => {
+                if (isAdminSessionActive() && !unsubscribeAdminFirestore) {
+                    void startAdminFirestoreSubscription();
+                }
+            }, 1500);
+            return;
+        }
         unsubscribeAdminFirestore = fb.subscribeAdminDashboard((snapshotData) => {
             latestAdminData = {
                 users: snapshotData.usersMap || {},
@@ -3389,12 +3402,14 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     }
 
     function checkAdminAuth() {
-        const isAuth = sessionStorage.getItem('admin_authenticated') === 'true' && !!getAdminToken();
+        const isAuth = isAdminSessionActive();
         if (isAuth) {
             if (gatekeeperEl) gatekeeperEl.style.display = 'none';
             if (mainContentEl) mainContentEl.style.display = 'block';
-            if (adminSessionUser) adminSessionUser.textContent = sessionStorage.getItem('admin_user') || 'ADMIN';
-            startAdminFirestoreSubscription();
+            if (adminSessionUser) {
+                adminSessionUser.textContent = sessionStorage.getItem('admin_user') || localStorage.getItem('admin_user') || 'ADMIN';
+            }
+            void startAdminFirestoreSubscription();
         } else {
             stopAdminFirestoreSubscription();
             if (gatekeeperEl) gatekeeperEl.style.display = 'flex';
@@ -3426,18 +3441,31 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                 return;
             }
 
+            const submitBtn = document.getElementById('adminLoginSubmitBtn');
+            if (submitBtn) submitBtn.disabled = true;
+
             try {
                 const res = await fetch('/api/admin/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ id: enteredId, password: enteredPass })
                 });
-                const data = await res.json();
+                const rawText = await res.text();
+                let data = null;
+                try {
+                    data = rawText ? JSON.parse(rawText) : null;
+                } catch {
+                    data = null;
+                }
 
                 if (res.ok && data && data.success) {
                     sessionStorage.setItem('admin_authenticated', 'true');
                     sessionStorage.setItem('admin_token', data.token);
                     sessionStorage.setItem('admin_user', data.adminId || 'ADMIN');
+                    localStorage.setItem('admin_authenticated', 'true');
+                    localStorage.setItem('admin_token', data.token);
+                    localStorage.setItem('admin_user', data.adminId || 'ADMIN');
 
                     if (adminLoginMessage) {
                         adminLoginMessage.textContent = '✓ Access granted! Connecting to real-time Firestore...';
@@ -3450,7 +3478,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                     }, 220);
                 } else {
                     if (adminLoginMessage) {
-                        adminLoginMessage.textContent = (data && data.message) || 'Access Denied: Invalid Admin ID or Password!';
+                        adminLoginMessage.textContent = (data && data.message) || `Access Denied (${res.status}): Invalid Admin ID or Password!`;
                         adminLoginMessage.className = 'message error';
                         adminLoginMessage.style.display = 'block';
                     }
@@ -3461,10 +3489,12 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                 }
             } catch (err) {
                 if (adminLoginMessage) {
-                    adminLoginMessage.textContent = 'Server unreachable. Please retry.';
+                    adminLoginMessage.textContent = 'Server unreachable. Please check your internet connection and retry.';
                     adminLoginMessage.className = 'message error';
                     adminLoginMessage.style.display = 'block';
                 }
+            } finally {
+                if (submitBtn) submitBtn.disabled = false;
             }
         });
     }
@@ -3475,6 +3505,9 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             sessionStorage.removeItem('admin_authenticated');
             sessionStorage.removeItem('admin_token');
             sessionStorage.removeItem('admin_user');
+            localStorage.removeItem('admin_authenticated');
+            localStorage.removeItem('admin_token');
+            localStorage.removeItem('admin_user');
             if (adminLoginForm) adminLoginForm.reset();
             if (adminLoginMessage) adminLoginMessage.style.display = 'none';
             checkAdminAuth();
@@ -4223,4 +4256,11 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     checkAdminAuth();
 }
 
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrapApp);
+} else {
+    bootstrapApp();
+}
+

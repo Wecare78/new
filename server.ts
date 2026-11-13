@@ -798,10 +798,10 @@ async function startServer() {
   // ----------------------------------------
   app.post('/api/admin/login', (req: Request, res: Response) => {
     const { id, password } = req.body || {};
-    const cleanId = String(id || '').trim().toUpperCase();
-    const cleanPass = String(password || '').trim();
+    const cleanId = String(id || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toUpperCase();
+    const cleanPass = String(password || '').replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
 
-    if (cleanId === REQUIRED_ADMIN_ID && cleanPass === REQUIRED_ADMIN_PASS) {
+    if (cleanId === REQUIRED_ADMIN_ID && (cleanPass === REQUIRED_ADMIN_PASS || cleanPass.toUpperCase() === REQUIRED_ADMIN_PASS)) {
       const token = `ADMIN-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       db.adminTokens.push(token);
       if (db.adminTokens.length > 30) db.adminTokens.shift();
@@ -955,6 +955,12 @@ async function startServer() {
   // ----------------------------------------
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.resolve(__dirname, 'dist')));
+    app.get(['/admin', '/admin.html'], (_req: Request, res: Response) => {
+      res.sendFile(path.resolve(__dirname, 'dist', 'admin.html'));
+    });
+    app.get(['/dashboard', '/dashboard.html'], (_req: Request, res: Response) => {
+      res.sendFile(path.resolve(__dirname, 'dist', 'dashboard.html'));
+    });
     app.get('*', (_req: Request, res: Response) => {
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
