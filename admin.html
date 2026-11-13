@@ -9,6 +9,35 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
+    <!-- ADMIN LOGIN GATE (NO ID/CREDENTIALS SHOWN INSIDE) -->
+    <div id="adminLoginOverlay" class="admin-login-overlay">
+        <div class="admin-login-card">
+            <div class="admin-login-shield">🔐</div>
+            <h2 class="admin-login-title">Admin Login</h2>
+            <p class="admin-login-subtitle">Enter your administrator credentials to access the backend monitor.</p>
+
+            <form id="adminLoginForm" autocomplete="off">
+                <div class="form-group">
+                    <label for="adminLoginId">Admin ID</label>
+                    <input type="text" id="adminLoginId" name="admin_id_field" placeholder="Enter Admin ID" autocomplete="off" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="adminLoginPassword">Password</label>
+                    <input type="password" id="adminLoginPassword" name="admin_pass_field" placeholder="Enter Password" autocomplete="new-password" required>
+                </div>
+
+                <div id="adminLoginError" class="message error" style="display:none;margin-bottom:12px;"></div>
+
+                <button type="submit" class="btn btn-primary" style="width:100%;">Unlock Backend Panel</button>
+            </form>
+
+            <a href="index.html" class="admin-back-home-link">← Return to Home Page</a>
+        </div>
+    </div>
+
+    <!-- PROTECTED ADMIN PORTAL WRAPPER -->
+    <div id="adminProtectedWrapper" style="display:none;">
     <!-- Top Server Status Banner -->
     <div class="admin-server-banner">
         <div class="admin-banner-inner">
@@ -89,12 +118,15 @@
                 <button type="button" class="btn btn-admin-action" id="adminExportJsonBtn" title="Export complete database and activity logs">
                     <span>📥 Export JSON</span>
                 </button>
+                <button type="button" class="btn btn-admin-action" id="adminChangeCredsBtn" title="Update Admin Login ID & Password">
+                    <span>🔑 Security</span>
+                </button>
                 <a href="dashboard.html" class="btn btn-admin-nav" title="Switch to User Dashboard">
                     <span>App Dashboard →</span>
                 </a>
-                <a href="index.html" class="btn btn-admin-nav btn-admin-home" title="Switch to Login / Register page">
-                    <span>Home Page</span>
-                </a>
+                <button type="button" class="btn btn-admin-action btn-outline-danger" id="adminLogoutBtn" title="Lock Admin Panel">
+                    <span>🔒 Lock</span>
+                </button>
             </div>
         </header>
 
@@ -372,6 +404,7 @@
             </div>
         </div>
     </div>
+    </div> <!-- /#adminProtectedWrapper -->
 
     <!-- IN-APP PAYMENT NOTIFICATION CONTAINER (FOR ADMIN SIMULATION PREVIEWS) -->
     <div id="paymentNotificationContainer" class="payment-notification-container" aria-live="assertive"></div>
