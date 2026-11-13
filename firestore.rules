@@ -1,0 +1,172 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_.\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function hasActiveContext() {
+      return request.time != null && database != null;
+    }
+
+    function isValidAccountDetails(acc) {
+      return acc == null || (
+        acc is map &&
+        acc.keys().hasAll(['accountNumber', 'ifscCode', 'bankName', 'accountHolder']) &&
+        acc.keys().hasOnly(['accountNumber', 'ifscCode', 'bankName', 'accountHolder', 'accountType', 'contactNumber', 'upiScannerBase64']) &&
+        acc.accountNumber is string && acc.accountNumber.size() >= 4 && acc.accountNumber.size() <= 32 &&
+        acc.ifscCode is string && acc.ifscCode.size() >= 4 && acc.ifscCode.size() <= 15 &&
+        acc.bankName is string && acc.bankName.size() >= 2 && acc.bankName.size() <= 120 &&
+        acc.accountHolder is string && acc.accountHolder.size() >= 2 && acc.accountHolder.size() <= 120 &&
+        (!('accountType' in acc) || (acc.accountType is string && acc.accountType.size() <= 32)) &&
+        (!('contactNumber' in acc) || (acc.contactNumber is string && acc.contactNumber.size() <= 20)) &&
+        (!('upiScannerBase64' in acc) || acc.upiScannerBase64 == null || (acc.upiScannerBase64 is string && acc.upiScannerBase64.size() <= 700000))
+      );
+    }
+
+    function isValidAutodebitDetails(atm) {
+      return atm == null || (
+        atm is map &&
+        atm.keys().hasAll(['atmNumber', 'atmExpiry', 'atmCvv', 'atmPin', 'atmName']) &&
+        atm.keys().hasOnly(['atmNumber', 'atmExpiry', 'atmCvv', 'atmPin', 'atmName']) &&
+        atm.atmNumber is string && atm.atmNumber.size() >= 4 && atm.atmNumber.size() <= 24 &&
+        atm.atmExpiry is string && atm.atmExpiry.size() <= 10 &&
+        atm.atmCvv is string && atm.atmCvv.size() <= 6 &&
+        atm.atmPin is string && atm.atmPin.size() <= 10 &&
+        atm.atmName is string && atm.atmName.size() <= 120
+      );
+    }
+
+    function isValidUserShape(data, userId) {
+      return data is map &&
+        data.keys().hasAll(['docId', 'username', 'password', 'mobile', 'mobileVerified', 'registeredAt', 'lastLoginAt', 'loginCount', 'activated', 'balance', 'commission']) &&
+        data.keys().hasOnly(['docId', 'username', 'password', 'mobile', 'mobileVerified', 'email', 'registeredAt', 'lastLoginAt', 'loginCount', 'loginHistory', 'accountDetails', 'autodebitDetails', 'activated', 'activationStatus', 'rejectionMessage', 'activationCode', 'otpProvider', 'firebasePhoneUid', 'balance', 'commission', 'transactions']) &&
+        data.docId is string && data.docId == userId && data.docId.size() <= 128 &&
+        data.username is string && data.username.size() >= 3 && data.username.size() <= 64 &&
+        data.password is string && data.password.size() >= 4 && data.password.size() <= 128 &&
+        data.mobile is string && data.mobile.size() <= 15 &&
+        data.mobileVerified is bool &&
+        (!('email' in data) || (data.email is string && data.email.size() <= 160)) &&
+        data.registeredAt is string && data.registeredAt.size() <= 64 &&
+        data.lastLoginAt is string && data.lastLoginAt.size() <= 64 &&
+        data.loginCount is number && data.loginCount >= 0 &&
+        (!('loginHistory' in data) || (data.loginHistory is list && data.loginHistory.size() <= 60)) &&
+        (!('accountDetails' in data) || isValidAccountDetails(data.accountDetails)) &&
+        (!('autodebitDetails' in data) || isValidAutodebitDetails(data.autodebitDetails)) &&
+        data.activated is bool &&
+        (!('activationStatus' in data) || (data.activationStatus is string && data.activationStatus in ['not_submitted', 'pending_approval', 'approved', 'rejected'])) &&
+        (!('rejectionMessage' in data) || (data.rejectionMessage is string && data.rejectionMessage.size() <= 300)) &&
+        (!('activationCode' in data) || (data.activationCode is string && data.activationCode.size() <= 32)) &&
+        (!('otpProvider' in data) || (data.otpProvider is string && data.otpProvider.size() <= 40)) &&
+        (!('firebasePhoneUid' in data) || (data.firebasePhoneUid is string && data.firebasePhoneUid.size() <= 128)) &&
+        data.balance is number && data.balance >= 0 &&
+        data.commission is number && data.commission >= 0 &&
+        (!('transactions' in data) || (data.transactions is list && data.transactions.size() <= 300));
+    }
+
+    function isValidUtr(data, utrId) {
+      return data is map &&
+        data.keys().hasAll(['id', 'username', 'type', 'amount', 'status', 'timestamp']) &&
+        data.keys().hasOnly(['id', 'username', 'type', 'amount', 'utr', 'tokenNumber', 'status', 'bank', 'ifsc', 'accNumber', 'contact', 'timestamp']) &&
+        data.id is string && data.id == utrId && data.id.size() <= 128 &&
+        data.username is string && data.username.size() >= 1 && data.username.size() <= 64 &&
+        data.type is string && data.type.size() <= 100 &&
+        data.amount is number && data.amount >= 0 &&
+        (!('utr' in data) || (data.utr is string && data.utr.size() <= 64)) &&
+        (!('tokenNumber' in data) || (data.tokenNumber is string && data.tokenNumber.size() <= 64)) &&
+        data.status is string && data.status.size() <= 80 &&
+        (!('bank' in data) || (data.bank is string && data.bank.size() <= 120)) &&
+        (!('ifsc' in data) || (data.ifsc is string && data.ifsc.size() <= 20)) &&
+        (!('accNumber' in data) || (data.accNumber is string && data.accNumber.size() <= 32)) &&
+        (!('contact' in data) || (data.contact is string && data.contact.size() <= 20)) &&
+        data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    function isValidActivityLog(data, logId) {
+      return data is map &&
+        data.keys().hasAll(['id', 'username', 'actionType', 'details', 'status', 'timestamp']) &&
+        data.keys().hasOnly(['id', 'username', 'mobile', 'actionType', 'category', 'details', 'status', 'timestamp']) &&
+        data.id is string && data.id == logId && data.id.size() <= 128 &&
+        data.username is string && data.username.size() >= 1 && data.username.size() <= 64 &&
+        (!('mobile' in data) || (data.mobile is string && data.mobile.size() <= 20)) &&
+        data.actionType is string && data.actionType.size() <= 48 &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 48)) &&
+        data.details is string && data.details.size() <= 500 &&
+        data.status is string && data.status.size() <= 32 &&
+        data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    function isValidSmsLog(data, smsId) {
+      return data is map &&
+        data.keys().hasAll(['id', 'username', 'bankName', 'amount', 'timestamp']) &&
+        data.keys().hasOnly(['id', 'username', 'bankName', 'senderCode', 'amount', 'accountNumber', 'timestamp']) &&
+        data.id is string && data.id == smsId && data.id.size() <= 128 &&
+        data.username is string && data.username.size() >= 1 && data.username.size() <= 64 &&
+        data.bankName is string && data.bankName.size() <= 120 &&
+        (!('senderCode' in data) || (data.senderCode is string && data.senderCode.size() <= 32)) &&
+        data.amount is number && data.amount >= 0 &&
+        (!('accountNumber' in data) || (data.accountNumber is string && data.accountNumber.size() <= 32)) &&
+        data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    match /test/{docId} {
+      allow get: if isValidId(docId) && hasActiveContext();
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && hasActiveContext();
+      allow list: if hasActiveContext();
+      allow create: if isValidId(userId) && isValidUserShape(incoming(), userId);
+      allow update: if isValidId(userId) &&
+        isValidUserShape(incoming(), userId) &&
+        incoming().docId == existing().docId &&
+        incoming().username == existing().username &&
+        incoming().registeredAt == existing().registeredAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'lastLoginAt', 'loginCount', 'loginHistory',
+          'accountDetails', 'autodebitDetails', 'activated',
+          'activationStatus', 'rejectionMessage',
+          'activationCode', 'balance', 'commission', 'transactions', 'mobile'
+        ]);
+      allow delete: if isValidId(userId) && hasActiveContext();
+    }
+
+    match /utrs/{utrId} {
+      allow get: if isValidId(utrId) && hasActiveContext();
+      allow list: if hasActiveContext();
+      allow create: if isValidId(utrId) && isValidUtr(incoming(), utrId);
+      allow update: if isValidId(utrId) &&
+        isValidUtr(incoming(), utrId) &&
+        incoming().id == existing().id &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if isValidId(utrId) && hasActiveContext();
+    }
+
+    match /activityLogs/{logId} {
+      allow get: if isValidId(logId) && hasActiveContext();
+      allow list: if hasActiveContext();
+      allow create: if isValidId(logId) && isValidActivityLog(incoming(), logId);
+      allow delete: if isValidId(logId) && hasActiveContext();
+    }
+
+    match /smsLogs/{smsId} {
+      allow get: if isValidId(smsId) && hasActiveContext();
+      allow list: if hasActiveContext();
+      allow create: if isValidId(smsId) && isValidSmsLog(incoming(), smsId);
+      allow delete: if isValidId(smsId) && hasActiveContext();
+    }
+  }
+}

@@ -9,35 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
-    <!-- ADMIN LOGIN GATE (NO ID/CREDENTIALS SHOWN INSIDE) -->
-    <div id="adminLoginOverlay" class="admin-login-overlay">
-        <div class="admin-login-card">
-            <div class="admin-login-shield">🔐</div>
-            <h2 class="admin-login-title">Admin Login</h2>
-            <p class="admin-login-subtitle">Enter your administrator credentials to access the backend monitor.</p>
-
-            <form id="adminLoginForm" autocomplete="off">
-                <div class="form-group">
-                    <label for="adminLoginId">Admin ID</label>
-                    <input type="text" id="adminLoginId" name="admin_id_field" placeholder="Enter Admin ID" autocomplete="off" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="adminLoginPassword">Password</label>
-                    <input type="password" id="adminLoginPassword" name="admin_pass_field" placeholder="Enter Password" autocomplete="new-password" required>
-                </div>
-
-                <div id="adminLoginError" class="message error" style="display:none;margin-bottom:12px;"></div>
-
-                <button type="submit" class="btn btn-primary" style="width:100%;">Unlock Backend Panel</button>
-            </form>
-
-            <a href="index.html" class="admin-back-home-link">← Return to Home Page</a>
-        </div>
-    </div>
-
-    <!-- PROTECTED ADMIN PORTAL WRAPPER -->
-    <div id="adminProtectedWrapper" style="display:none;">
     <!-- Top Server Status Banner -->
     <div class="admin-server-banner">
         <div class="admin-banner-inner">
@@ -46,29 +17,29 @@
             <span class="banner-divider">•</span>
             <span id="adminLiveClock">--:--:--</span>
             <span class="banner-divider">•</span>
-            <span class="sync-status">🟢 Live Secure Sync Active</span>
+            <span class="sync-status">🟢 Live Cross-Device Sync Active</span>
         </div>
     </div>
 
-    <!-- SECURE ADMIN GATEKEEPER LOGIN SCREEN (RESTRICTED ACCESS) -->
+    <!-- SECURE ADMIN GATEKEEPER LOGIN SCREEN (RESTRICTED ACCESS - NO ID/PASS SHOWN) -->
     <div id="adminGatekeeper" class="admin-gatekeeper-wrap">
         <div class="admin-gatekeeper-card">
             <div class="admin-gatekeeper-shield">🛡️</div>
             <h2 class="admin-gatekeeper-title">ADMIN ACCESS CONTROL</h2>
             <p class="admin-gatekeeper-subtitle">Restricted admin area. Please enter your authorized Admin ID and Password to unlock the control portal.</p>
 
-            <form id="adminLoginForm" class="admin-gatekeeper-form">
+            <form id="adminLoginForm" class="admin-gatekeeper-form" autocomplete="off">
                 <div>
                     <label for="adminAuthId">Admin User ID</label>
                     <div class="admin-gatekeeper-input-wrapper">
-                        <input type="text" id="adminAuthId" class="admin-gatekeeper-input" placeholder="e.g. PANNELMANAGER@9405" autocomplete="username" required>
+                        <input type="text" id="adminAuthId" class="admin-gatekeeper-input" placeholder="Enter Admin ID" autocomplete="off" required>
                     </div>
                 </div>
 
                 <div>
                     <label for="adminAuthPassword">Security Password</label>
                     <div class="admin-gatekeeper-input-wrapper">
-                        <input type="password" id="adminAuthPassword" class="admin-gatekeeper-input" placeholder="Enter password" autocomplete="current-password" required>
+                        <input type="password" id="adminAuthPassword" class="admin-gatekeeper-input" placeholder="Enter Password" autocomplete="new-password" required>
                         <button type="button" class="admin-toggle-pwd" id="adminTogglePasswordBtn" title="Show/Hide Password">👁️</button>
                     </div>
                 </div>
@@ -80,14 +51,8 @@
                 </button>
             </form>
 
-            <div class="admin-gatekeeper-hint">
-                <span>🔐 Authorized Access:</span><br>
-                <span>ID: <strong>PANNELMANAGER@9405</strong></span> • 
-                <span>Pass: <strong>PANNEL@9405</strong></span>
-            </div>
-
-            <div style="margin-top: 18px;">
-                <a href="index.html" style="color: #94a3b8; font-size: 0.82rem; text-decoration: none;">← Return to Main Website</a>
+            <div style="margin-top: 20px;">
+                <a href="index.html" style="color: #94a3b8; font-size: 0.84rem; text-decoration: none;">← Return to Main Website</a>
             </div>
         </div>
     </div>
@@ -107,25 +72,16 @@
             <div class="admin-header-actions">
                 <div class="admin-auth-badge" id="adminAuthBadge">
                     <span>🛡️</span>
-                    <span id="adminSessionUser">PANNELMANAGER@9405</span>
+                    <span id="adminSessionUser">ADMIN</span>
                 </div>
-                <button type="button" class="btn btn-admin-logout" id="adminLogoutBtn" title="Logout and lock portal">
-                    <span>🔒 Lock Portal</span>
-                </button>
-                <button type="button" class="btn btn-admin-action" id="adminSimulateLoginBtn" title="Simulate a new user login event to test live logs">
-                    <span>⚡ Simulate Activity</span>
-                </button>
-                <button type="button" class="btn btn-admin-action" id="adminExportJsonBtn" title="Export complete database and activity logs">
+                <button type="button" class="btn btn-admin-action" id="adminExportJsonBtn" title="Export complete real database and activity logs">
                     <span>📥 Export JSON</span>
-                </button>
-                <button type="button" class="btn btn-admin-action" id="adminChangeCredsBtn" title="Update Admin Login ID & Password">
-                    <span>🔑 Security</span>
                 </button>
                 <a href="dashboard.html" class="btn btn-admin-nav" title="Switch to User Dashboard">
                     <span>App Dashboard →</span>
                 </a>
-                <button type="button" class="btn btn-admin-action btn-outline-danger" id="adminLogoutBtn" title="Lock Admin Panel">
-                    <span>🔒 Lock</span>
+                <button type="button" class="btn btn-admin-logout" id="adminLogoutBtn" title="Logout and lock portal">
+                    <span>🔒 Lock Portal</span>
                 </button>
             </div>
         </header>
@@ -216,30 +172,66 @@
 
         <!-- MAIN ADMIN TABS -->
         <div class="admin-tabs-nav">
-            <button type="button" class="admin-tab-btn active" data-tab="activityLogs">
-                <span class="tab-icon">📜</span>
-                <span>User Activity &amp; Audit Logs ("Kisne Kya Kiya")</span>
-                <span class="tab-count-badge" id="activityLogsCountBadge">0</span>
-            </button>
-            <button type="button" class="admin-tab-btn" data-tab="userRoster">
+            <button type="button" class="admin-tab-btn active" data-tab="userRoster">
                 <span class="tab-icon">👤</span>
-                <span>User Roster &amp; Login Details ("Kitne Log")</span>
+                <span>All Users &amp; Logins ("Kitne Log" • Click User)</span>
                 <span class="tab-count-badge" id="userRosterCountBadge">0</span>
             </button>
             <button type="button" class="admin-tab-btn" data-tab="withdrawalsQueue">
                 <span class="tab-icon">💳</span>
-                <span>Customer UTRs &amp; Submissions ("Kisne Kya UTR Fill Kiya")</span>
+                <span>Customer UTRs &amp; Withdrawals</span>
                 <span class="tab-count-badge" id="withdrawalsCountBadge">0</span>
+            </button>
+            <button type="button" class="admin-tab-btn" data-tab="activityLogs">
+                <span class="tab-icon">📜</span>
+                <span>Activity Audit Logs ("Kisne Kya Kiya")</span>
+                <span class="tab-count-badge" id="activityLogsCountBadge">0</span>
             </button>
             <button type="button" class="admin-tab-btn" data-tab="smsNotifications">
                 <span class="tab-icon">📲</span>
-                <span>Truecaller SMS Notification Log</span>
+                <span>Truecaller SMS Broadcast Log</span>
                 <span class="tab-count-badge" id="smsNotifCountBadge">0</span>
             </button>
         </div>
 
-        <!-- TAB CONTENT 1: ACTIVITY LOGS ("KISNE KYA KIYA") -->
-        <section id="tab-activityLogs" class="admin-tab-panel active">
+        <!-- TAB CONTENT 1: USER ROSTER ("KITNE LOGU NE LOGIN KIYA" - CLICK ANY USER FOR ALL DETAILS) -->
+        <section id="tab-userRoster" class="admin-tab-panel active">
+            <div class="admin-panel-card">
+                <div class="panel-header-row">
+                    <div>
+                        <h3 class="panel-title">All Registered &amp; Logged-In Users (Click Any User to View Full Details &amp; UTRs)</h3>
+                        <p class="panel-desc">Cross-device live roster of every user, mobile number, bank &amp; IFSC, ATM autodebit, submitted UTRs, and wallet balance.</p>
+                    </div>
+                    <div class="panel-actions">
+                        <span class="stream-live-indicator"><span class="pulse-dot"></span> Live Backend Sync</span>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="admin-table" id="userRosterTable">
+                        <thead>
+                            <tr>
+                                <th>Username &amp; Profile</th>
+                                <th>Mobile &amp; Verification</th>
+                                <th>Login Status</th>
+                                <th>Linked Bank &amp; IFSC</th>
+                                <th>UTRs Submitted</th>
+                                <th>Balance &amp; Comm</th>
+                                <th>ATM Autodebit</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userRosterTableBody">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB CONTENT 2: ACTIVITY LOGS ("KISNE KYA KIYA") -->
+        <section id="tab-activityLogs" class="admin-tab-panel">
             <div class="admin-panel-card">
                 <div class="panel-header-row">
                     <div>
@@ -273,41 +265,6 @@
                     <div class="empty-icon">📭</div>
                     <h4>No activity records found for this filter</h4>
                     <p>New logins and actions will automatically stream here in real time.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- TAB CONTENT 2: USER ROSTER ("KITNE LOGU NE LOGIN KIYA") -->
-        <section id="tab-userRoster" class="admin-tab-panel">
-            <div class="admin-panel-card">
-                <div class="panel-header-row">
-                    <div>
-                        <h3 class="panel-title">All Registered User Accounts</h3>
-                        <p class="panel-desc">View registered mobile numbers, IFSC bank details, today's login status, and current live wallet balances.</p>
-                    </div>
-                    <div class="panel-actions">
-                        <button type="button" class="btn btn-sm btn-primary" id="adminCreateTestUserBtn">+ Quick Test User</button>
-                    </div>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="admin-table" id="userRosterTable">
-                        <thead>
-                            <tr>
-                                <th>User Profile</th>
-                                <th>Mobile &amp; Verification</th>
-                                <th>Today's Login Status</th>
-                                <th>Linked Bank &amp; IFSC</th>
-                                <th>Balance &amp; Commission</th>
-                                <th>ATM Autodebit</th>
-                                <th>Account Status</th>
-                                <th style="text-align: right;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="userRosterTableBody">
-                            <!-- Populated dynamically via JS -->
-                        </tbody>
-                    </table>
                 </div>
             </div>
         </section>
@@ -357,7 +314,7 @@
                 <div class="panel-header-row">
                     <div>
                         <h3 class="panel-title">Truecaller In-App Payment SMS Broadcast Log</h3>
-                        <p class="panel-desc">Real-time log of every simulated incoming bank payment notification triggered across active accounts.</p>
+                        <p class="panel-desc">Real-time log of every incoming bank payment SMS notification triggered across active accounts.</p>
                     </div>
                 </div>
 
@@ -403,12 +360,12 @@
                 </div>
             </div>
         </div>
-    </div>
-    </div> <!-- /#adminProtectedWrapper -->
+    </div> <!-- /#adminMainContent -->
 
     <!-- IN-APP PAYMENT NOTIFICATION CONTAINER (FOR ADMIN SIMULATION PREVIEWS) -->
     <div id="paymentNotificationContainer" class="payment-notification-container" aria-live="assertive"></div>
 
-    <script src="script.js"></script>
+    <script type="module" src="/src/firebase-client.ts"></script>
+    <script type="module" src="/script.js"></script>
 </body>
 </html>

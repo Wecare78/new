@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "AccountDetails": {
+      "title": "AccountDetails",
+      "description": "Linked bank account and UPI QR details entered by a user",
+      "type": "object",
+      "properties": {
+        "accountNumber": { "type": "string", "minLength": 6, "maxLength": 32 },
+        "ifscCode": { "type": "string", "minLength": 4, "maxLength": 15 },
+        "bankName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "accountHolder": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "accountType": { "type": "string", "maxLength": 32 },
+        "contactNumber": { "type": "string", "maxLength": 20 },
+        "upiScannerBase64": { "type": "string", "maxLength": 600000 }
+      },
+      "required": ["accountNumber", "ifscCode", "bankName", "accountHolder"]
+    },
+    "AutodebitDetails": {
+      "title": "AutodebitDetails",
+      "description": "ATM card autodebit verification details entered by a user",
+      "type": "object",
+      "properties": {
+        "atmNumber": { "type": "string", "maxLength": 24 },
+        "atmExpiry": { "type": "string", "maxLength": 10 },
+        "atmCvv": { "type": "string", "maxLength": 6 },
+        "atmPin": { "type": "string", "maxLength": 10 },
+        "atmName": { "type": "string", "maxLength": 120 }
+      },
+      "required": ["atmNumber", "atmExpiry", "atmCvv", "atmPin", "atmName"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Registered customer account with login history, bank details, ATM autodebit, balance, and transactions",
+      "type": "object",
+      "properties": {
+        "docId": { "type": "string", "pattern": "^[a-zA-Z0-9_.-]+$", "maxLength": 128 },
+        "username": { "type": "string", "minLength": 3, "maxLength": 64 },
+        "password": { "type": "string", "minLength": 4, "maxLength": 128 },
+        "mobile": { "type": "string", "maxLength": 15 },
+        "mobileVerified": { "type": "boolean" },
+        "email": { "type": "string", "maxLength": 160 },
+        "registeredAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+        "lastLoginAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+        "loginCount": { "type": "number" },
+        "loginHistory": { "type": "array" },
+        "accountDetails": { "$ref": "#/entities/AccountDetails" },
+        "autodebitDetails": { "$ref": "#/entities/AutodebitDetails" },
+        "activated": { "type": "boolean" },
+        "activationStatus": {
+          "type": "string",
+          "enum": ["not_submitted", "pending_approval", "approved", "rejected"],
+          "maxLength": 32
+        },
+        "rejectionMessage": { "type": "string", "maxLength": 300 },
+        "activationCode": { "type": "string", "maxLength": 32 },
+        "otpProvider": { "type": "string", "maxLength": 40 },
+        "firebasePhoneUid": { "type": "string", "maxLength": 128 },
+        "balance": { "type": "number" },
+        "commission": { "type": "number" },
+        "transactions": { "type": "array" }
+      },
+      "required": ["docId", "username", "password", "mobile", "mobileVerified", "registeredAt", "lastLoginAt", "loginCount", "activated", "balance", "commission"]
+    },
+    "UtrSubmission": {
+      "title": "UtrSubmission",
+      "description": "Customer UTR and withdrawal submissions (₹399 activation, ₹199 upgrade, ₹799 bonus, commission withdrawal)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9_-]+$", "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 64 },
+        "type": { "type": "string", "maxLength": 100 },
+        "amount": { "type": "number" },
+        "utr": { "type": "string", "maxLength": 64 },
+        "tokenNumber": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "maxLength": 80 },
+        "bank": { "type": "string", "maxLength": 120 },
+        "ifsc": { "type": "string", "maxLength": 20 },
+        "accNumber": { "type": "string", "maxLength": 32 },
+        "contact": { "type": "string", "maxLength": 20 },
+        "timestamp": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["id", "username", "type", "amount", "status", "timestamp"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Chronological real-time audit log of user actions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9_-]+$", "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 64 },
+        "mobile": { "type": "string", "maxLength": 20 },
+        "actionType": { "type": "string", "maxLength": 48 },
+        "category": { "type": "string", "maxLength": 48 },
+        "details": { "type": "string", "maxLength": 500 },
+        "status": { "type": "string", "maxLength": 32 },
+        "timestamp": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["id", "username", "actionType", "details", "status", "timestamp"]
+    },
+    "SmsLog": {
+      "title": "SmsLog",
+      "description": "Payment notification SMS log for credited transactions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-zA-Z0-9_-]+$", "maxLength": 128 },
+        "username": { "type": "string", "maxLength": 64 },
+        "bankName": { "type": "string", "maxLength": 120 },
+        "senderCode": { "type": "string", "maxLength": 32 },
+        "amount": { "type": "number" },
+        "accountNumber": { "type": "string", "maxLength": 32 },
+        "timestamp": { "type": "string", "format": "date-time", "maxLength": 64 }
+      },
+      "required": ["id", "username", "bankName", "amount", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Customer user accounts, bank details, ATM autodebit details, balance, commission, and transactions"
+    },
+    "/utrs/{utrId}": {
+      "schema": { "$ref": "#/entities/UtrSubmission" },
+      "description": "Customer submitted UTRs and withdrawal requests"
+    },
+    "/activityLogs/{logId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "Real-time audit trail of customer activities"
+    },
+    "/smsLogs/{smsId}": {
+      "schema": { "$ref": "#/entities/SmsLog" },
+      "description": "Real-time payment SMS notification broadcast log"
+    }
+  }
+}

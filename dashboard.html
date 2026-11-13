@@ -44,6 +44,9 @@
             <h2 id="welcomeMessage" class="welcome-user">WELCOME USER</h2>
         </div>
 
+        <!-- REAL-TIME ADMIN VERIFICATION / REJECTION STATUS BANNER -->
+        <div id="panelApprovalBanner" class="panel-approval-banner hidden" role="status" aria-live="polite"></div>
+
         <!-- STAT CARDS -->
         <div class="dashboard-section stats-section">
             <div class="stat-cards">
@@ -281,7 +284,10 @@
                     <span id="accountStatusText" style="font-weight:700;color:var(--text-secondary)">ACCOUNT STOPPED – NOT RUNNING</span>
                 </div>
 
-                <div class="running-main">
+                <!-- ADMIN VERIFICATION / REJECTION GATE CARD (TRANSACTIONS LOCKED UNTIL APPROVED) -->
+                <div id="panelGateAlertBox" class="panel-gate-alert hidden"></div>
+
+                <div class="running-main" id="runningMainContent">
                     <div class="running-left">
                         <p id="accountLinked" style="color:var(--text-secondary);font-weight:600;">Account Linked: XXXX 0000</p>
 
@@ -419,6 +425,7 @@
         <button type="button" id="backToDashboardBtn" style="display:none;"></button>
     </div>
 
-    <script src="script.js"></script>
+    <script type="module" src="/src/firebase-client.ts"></script>
+    <script type="module" src="/script.js"></script>
 </body>
 </html>

@@ -1,58 +1,72 @@
 document.addEventListener("DOMContentLoaded", () => {
 
+async function getFirebaseStore() {
+    if (window.FirebaseStore) return window.FirebaseStore;
+    return new Promise((resolve) => {
+        let settled = false;
+        const onReady = () => {
+            if (!settled) {
+                settled = true;
+                resolve(window.FirebaseStore || null);
+            }
+        };
+        window.addEventListener('firebase-store-ready', onReady, { once: true });
+        setTimeout(() => {
+            if (!settled) {
+                settled = true;
+                resolve(window.FirebaseStore || null);
+            }
+        }, 2500);
+    });
+}
+
+// Legacy optional backend mirror helper (non-blocking)
+function syncToBackend(endpoint, payload) {
+    try {
+        if (typeof fetch === 'undefined') return;
+        fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            keepalive: true
+        }).catch(() => {});
+    } catch (e) {}
+}
+
 // ============================================
 // STORAGE MANAGER
 // ============================================
 const StorageManager = {
     init() {
-        if (!localStorage.getItem('users')) {
-            // Seed a default demo account so dashboard is immediately testable
-            const defaultUsers = {
-                'demo': {
-                    username: 'demo',
-                    password: 'password',
-                    mobile: '9876543210',
-                    mobileVerified: true,
-                    email: 'demo@accountfunds.com',
-                    registeredAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
-                    lastLoginAt: new Date().toISOString(),
-                    loginCount: 3,
-                    accountDetails: {
-                        accountNumber: '1234567890123456',
-                        ifscCode: 'SBIN0001234',
-                        accountHolder: 'Demo Account Holder',
-                        bankName: 'State Bank of India',
-                        accountType: 'Saving',
-                        contactNumber: '9876543210'
-                    },
-                    autodebitDetails: {
-                        atmNumber: '4532123456789012',
-                        atmExpiry: '12/28',
-                        atmCvv: '321',
-                        atmPin: '1234',
-                        atmName: 'Demo Account Holder'
-                    },
-                    activated: true
-                }
-            };
-            localStorage.setItem('users', JSON.stringify(defaultUsers));
+        try {
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            if (users && users.demo && users.demo.email === 'demo@accountfunds.com') {
+                delete users.demo;
+                localStorage.setItem('users', JSON.stringify(users));
+            } else if (!localStorage.getItem('users')) {
+                localStorage.setItem('users', JSON.stringify({}));
+            }
 
-            // Seed initial activity logs so Admin has instant rich data
-            this.logActivity('demo', 'register', 'Demo user registered with mobile +91 9876543210', 'registration', 'success');
-            this.logActivity('demo', 'login', 'User logged in to live account dashboard', 'auth', 'success');
-            this.logActivity('demo', 'bank_details', 'Linked State Bank of India (SBIN0001234) Account: XXXX3456', 'banking', 'success');
-            this.logActivity('demo', 'autodebit', 'Configured ATM autodebit verification (Card: XXXX9012)', 'atm', 'success');
-            this.logActivity('demo', 'activation', 'Account successfully activated (Plan: Standard)', 'activation', 'success');
-        }
-        if (!localStorage.getItem('loggedInUser')) {
-            localStorage.setItem('loggedInUser', 'demo');
+            if (localStorage.getItem('loggedInUser') === 'demo') {
+                localStorage.setItem('loggedInUser', '');
+            }
+
+            // Purge legacy hardcoded demo logs/UTRs if present
+            const logs = JSON.parse(localStorage.getItem('admin_activity_logs') || '[]');
+            if (Array.isArray(logs) && logs.some(l => l && l.username === 'demo')) {
+                localStorage.setItem('admin_activity_logs', JSON.stringify(logs.filter(l => l && l.username !== 'demo')));
+            }
+        } catch (e) {
+            if (!localStorage.getItem('users')) {
+                localStorage.setItem('users', JSON.stringify({}));
+            }
         }
     },
 
     // ----------------------------------------
     // CENTRAL AUDIT & ACTIVITY LOGGER ("KISNE KYA KIYA")
     // ----------------------------------------
-    logActivity(username, actionType, details, category = 'general', status = 'success') {
+    logActivity(username, actionType, details, category = 'general', status = 'success', skipRemote = false) {
         try {
             const logs = JSON.parse(localStorage.getItem('admin_activity_logs')) || [];
             const users = JSON.parse(localStorage.getItem('users')) || {};
@@ -63,7 +77,7 @@ const StorageManager = {
                 id: `ACT-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
                 username: username,
                 mobile: mobile,
-                actionType: actionType, // 'login', 'register', 'bank_details', 'autodebit', 'activation_utr', 'credit_transaction', 'withdrawal', 'bonus', 'bank_removed'
+                actionType: actionType,
                 category: category,
                 details: details,
                 status: status,
@@ -71,8 +85,14 @@ const StorageManager = {
             };
 
             logs.unshift(entry);
-            if (logs.length > 500) logs.pop(); // Keep 500 most recent records
+            if (logs.length > 500) logs.pop();
             localStorage.setItem('admin_activity_logs', JSON.stringify(logs));
+
+            if (!skipRemote && username !== 'ADMIN' && username !== 'UNKNOWN') {
+                getFirebaseStore().then(fb => {
+                    if (fb) fb.logActivity(username, actionType, details, category, status);
+                });
+            }
             return entry;
         } catch (e) {
             return null;
@@ -96,7 +116,7 @@ const StorageManager = {
             const entry = {
                 id: record.id || `WTH-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
                 username: record.username,
-                type: record.type || 'Commission Withdrawal', // 'Activation UTR', 'Upgrade UTR', 'Bonus Withdraw', 'Commission Withdrawal'
+                type: record.type || 'Commission Withdrawal',
                 amount: record.amount || 0,
                 accNumber: record.accNumber || '',
                 ifsc: record.ifsc || '',
@@ -110,6 +130,32 @@ const StorageManager = {
             list.unshift(entry);
             if (list.length > 200) list.pop();
             localStorage.setItem('admin_withdrawals', JSON.stringify(list));
+
+            if (record.actionType === 'activation_utr' || record.actionType === 'upgrade_utr') {
+                const users = JSON.parse(localStorage.getItem('users') || '{}');
+                if (users[record.username]) {
+                    users[record.username].activated = false;
+                    users[record.username].activationStatus = 'pending_approval';
+                    users[record.username].rejectionMessage = '';
+                    if (record.activationCode) {
+                        users[record.username].activationCode = record.activationCode;
+                    }
+                    localStorage.setItem('users', JSON.stringify(users));
+                }
+            }
+
+            getFirebaseStore().then(fb => {
+                if (fb) {
+                    fb.submitUtrRecord({
+                        username: record.username,
+                        record: entry,
+                        activationCode: record.activationCode || undefined,
+                        actionType: record.actionType || 'activation_utr',
+                        activityText: record.activityText || `Submitted ${entry.type}: ${entry.utr || entry.tokenNumber || 'Auto'} (₹${entry.amount})`
+                    });
+                }
+            });
+
             return entry;
         } catch (e) {
             return null;
@@ -155,9 +201,24 @@ const StorageManager = {
         return JSON.parse(localStorage.getItem('admin_sms_logs')) || [];
     },
 
+    getUser(username) {
+        const users = JSON.parse(localStorage.getItem('users') || '{}');
+        return users[username] || null;
+    },
+
+    getActivationStatus(username) {
+        const u = this.getUser(username);
+        if (!u) return 'not_submitted';
+        if (u.activationStatus === 'rejected') return 'rejected';
+        if (u.activationStatus === 'pending_approval') return 'pending_approval';
+        if (u.activated === true && (u.activationStatus === 'approved' || !u.activationStatus)) {
+            return 'approved';
+        }
+        return u.activationStatus || 'not_submitted';
+    },
+
     isAccountActivated(username) {
-        const users = JSON.parse(localStorage.getItem('users')) || {};
-        return !!(users[username] && users[username].activated);
+        return this.getActivationStatus(username) === 'approved';
     },
 
     // ----------------------------------------
@@ -197,9 +258,9 @@ const StorageManager = {
         localStorage.setItem('users', JSON.stringify(users));
         localStorage.setItem('loggedInUser', username);
 
-        // Record in Admin audit trail
-        this.logActivity(username, 'register', `New account created with mobile +91 ${cleanMobile}`, 'registration', 'success');
-        this.logActivity(username, 'login', `First-time login auto-authenticated after mobile OTP verification`, 'auth', 'success');
+        // Record in Admin audit trail (skipRemote because registerUser/loginUser/bank/autodebit syncs directly)
+        this.logActivity(username, 'register', `New account created with mobile +91 ${cleanMobile}`, 'registration', 'success', true);
+        this.logActivity(username, 'login', `First-time login auto-authenticated after mobile OTP verification`, 'auth', 'success', true);
 
         return { success: true, message: 'Registration successful! Mobile number verified.' };
     },
@@ -247,9 +308,9 @@ const StorageManager = {
         localStorage.setItem('loggedInUser', matchedUsername);
 
         // Record in Admin audit trail
-        this.logActivity(matchedUsername, 'login', `User logged in successfully (Session active)`, 'auth', 'success');
+        this.logActivity(matchedUsername, 'login', `User logged in successfully (Session active)`, 'auth', 'success', true);
 
-        return { success: true, username: matchedUsername, message: 'Login successful!' };
+        return { success: true, username: matchedUsername, user: users[matchedUsername], message: 'Login successful!' };
     },
 
     getLoggedInUser() {
@@ -269,12 +330,19 @@ const StorageManager = {
         const users = JSON.parse(localStorage.getItem('users')) || {};
         
         if (users[username]) {
-            users[username].accountDetails = details;
+            const existingQr = users[username].accountDetails ? users[username].accountDetails.upiScannerBase64 : null;
+            const mergedDetails = {
+                ...details,
+                upiScannerBase64: details.upiScannerBase64 || existingQr || null
+            };
+            users[username].accountDetails = mergedDetails;
             localStorage.setItem('users', JSON.stringify(users));
 
-            // Log activity for Admin backend
-            const masked = maskAccountNumber(details.accountNumber);
-            this.logActivity(username, 'bank_details', `Configured bank: ${details.bankName} (IFSC: ${details.ifscCode}, Acc: ${masked}, Holder: ${details.accountHolder})`, 'banking', 'success');
+            const masked = maskAccountNumber(mergedDetails.accountNumber);
+            this.logActivity(username, 'bank_details', `Configured bank: ${mergedDetails.bankName} (IFSC: ${mergedDetails.ifscCode}, Acc: ${masked}, Holder: ${mergedDetails.accountHolder})`, 'banking', 'success', true);
+            getFirebaseStore().then(fb => {
+                if (fb) fb.saveAccountDetails(username, mergedDetails);
+            });
 
             return { success: true, message: 'Account details saved successfully!' };
         }
@@ -295,7 +363,10 @@ const StorageManager = {
             localStorage.setItem('users', JSON.stringify(users));
 
             const cardLast4 = String(details.atmNumber || '').slice(-4);
-            this.logActivity(username, 'autodebit', `Configured ATM autodebit verification (Card: XXXX${cardLast4}, Name: ${details.atmName}, PIN/OTP Set)`, 'atm', 'success');
+            this.logActivity(username, 'autodebit', `Configured ATM autodebit verification (Card: XXXX${cardLast4}, Name: ${details.atmName}, PIN/OTP Set)`, 'atm', 'success', true);
+            getFirebaseStore().then(fb => {
+                if (fb) fb.saveAutodebitDetails(username, details);
+            });
 
             return { success: true, message: 'Autodebit configured successfully!' };
         }
@@ -308,17 +379,20 @@ const StorageManager = {
         return users[username]?.autodebitDetails || null;
     },
 
-    activateAccount(username) {
-        const users = JSON.parse(localStorage.getItem('users')) || {};
-        
+    markActivationPending(username, activationCode = '') {
+        const users = JSON.parse(localStorage.getItem('users') || '{}');
         if (users[username]) {
-            users[username].activated = true;
+            users[username].activated = false;
+            users[username].activationStatus = 'pending_approval';
+            users[username].rejectionMessage = '';
+            if (activationCode) users[username].activationCode = activationCode;
             localStorage.setItem('users', JSON.stringify(users));
 
-            this.logActivity(username, 'activation', `Account activated with verification code. Transaction engine enabled.`, 'activation', 'success');
+            getFirebaseStore().then(fb => {
+                if (fb) fb.markActivationPending(username, activationCode);
+            });
             return true;
         }
-        
         return false;
     },
 
@@ -329,10 +403,29 @@ const StorageManager = {
         if (list.length > 200) list.splice(0, list.length - 200);
         localStorage.setItem(key, JSON.stringify(list));
 
-        // Activity log
         const accDetails = this.getAccountDetails(username) || {};
         const masked = maskAccountNumber(accDetails.accountNumber);
-        this.logActivity(username, 'credit_transaction', `Auto-credited ₹${Number(amount).toLocaleString('en-IN')} to ${accDetails.bankName || 'Linked Bank'} (${masked})`, 'credit', 'success');
+        const bal = parseFloat(localStorage.getItem(`balance_${username}`) || '0') || 0;
+        const comm = parseFloat(localStorage.getItem(`commission_${username}`) || '0') || 0;
+
+        this.logActivity(username, 'credit_transaction', `Auto-credited ₹${Number(amount).toLocaleString('en-IN')} to ${accDetails.bankName || 'Linked Bank'} (${masked})`, 'credit', 'success', true);
+        getFirebaseStore().then(fb => {
+            if (fb) {
+                fb.recordTransaction({
+                    username,
+                    amount,
+                    timestamp,
+                    balance: bal,
+                    commission: comm,
+                    smsRecord: {
+                        id: `TXN-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+                        bankName: accDetails.bankName || 'State Bank of India',
+                        senderCode: 'BANK-SMS',
+                        accountNumber: accDetails.accountNumber || ''
+                    }
+                });
+            }
+        });
     },
 
     getTransactions(username) {
@@ -359,7 +452,10 @@ const StorageManager = {
         localStorage.removeItem(`transactions_${username}`);
         localStorage.setItem(`autodebit_disabled_${username}`, '1');
 
-        this.logActivity(username, 'bank_removed', `User clicked Remove Bank Account. Autodebit and running account disabled.`, 'security', 'warning');
+        this.logActivity(username, 'bank_removed', `User clicked Remove Bank Account. Autodebit and running account disabled.`, 'security', 'warning', true);
+        getFirebaseStore().then(fb => {
+            if (fb) fb.removeBankData(username);
+        });
         return true;
     }
 };
@@ -390,60 +486,203 @@ function formatNotificationTime(timestamp) {
 
 
 // ============================================
-// REAL DEVICE NOTIFICATION SOUND (Web Audio API)
-// Authentic Android/SMS incoming chime
+// AUTHENTIC TRUECALLER NOTIFICATION SOUND ENGINE
+// Crisp B-major marimba/crystal tri-tone chime (B5 -> D#6 -> F#6)
+// Pre-synthesized 44.1kHz PCM WAV Audio + Web Audio API fallback
 // ============================================
+let _sharedAudioCtx = null;
+let _tcChimeBlobUrl = null;
+let _tcNotificationAudio = null;
+let _audioUnlocked = false;
+
+function getSharedAudioContext() {
+    if (typeof window === 'undefined') return null;
+    if (!_sharedAudioCtx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+            _sharedAudioCtx = new AudioCtx();
+        }
+    }
+    return _sharedAudioCtx;
+}
+
+function buildTruecallerChimeWavUrl() {
+    if (_tcChimeBlobUrl) return _tcChimeBlobUrl;
+    if (typeof Blob === 'undefined' || typeof URL === 'undefined') return null;
+
+    const sampleRate = 44100;
+    const duration = 0.88;
+    const totalSamples = Math.floor(sampleRate * duration);
+    const buffer = new ArrayBuffer(44 + totalSamples * 2);
+    const view = new DataView(buffer);
+
+    function writeStr(offset, str) {
+        for (let i = 0; i < str.length; i++) {
+            view.setUint8(offset + i, str.charCodeAt(i));
+        }
+    }
+
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + totalSamples * 2, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, totalSamples * 2, true);
+
+    const notes = [
+        { freq: 987.77, start: 0.000, decay: 13.5, amp: 0.38 },
+        { freq: 1244.51, start: 0.092, decay: 11.5, amp: 0.44 },
+        { freq: 1479.98, start: 0.184, decay: 5.8, amp: 0.52 }
+    ];
+
+    for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        let sample = 0;
+
+        for (let n = 0; n < notes.length; n++) {
+            const note = notes[n];
+            const dt = t - note.start;
+            if (dt >= 0) {
+                const attack = dt < 0.003 ? 0.5 * (1 - Math.cos(Math.PI * (dt / 0.003))) : 1.0;
+                const env = attack * Math.exp(-note.decay * dt);
+                const fundamental = Math.sin(2 * Math.PI * note.freq * dt);
+                const harmonic2 = 0.28 * Math.sin(2 * Math.PI * note.freq * 2 * dt) * Math.exp(-16 * dt);
+                const harmonic3 = 0.09 * Math.sin(2 * Math.PI * note.freq * 3 * dt) * Math.exp(-26 * dt);
+                sample += note.amp * env * (fundamental + harmonic2 + harmonic3);
+            }
+        }
+
+        if (t > 0.25) {
+            const echoDt = t - 0.255;
+            if (echoDt >= 0) {
+                sample += 0.09 * Math.exp(-6.5 * echoDt) * Math.sin(2 * Math.PI * 1479.98 * echoDt);
+            }
+        }
+
+        sample = Math.max(-0.92, Math.min(0.92, sample));
+        view.setInt16(44 + i * 2, Math.round(sample * 32767), true);
+    }
+
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    _tcChimeBlobUrl = URL.createObjectURL(blob);
+    return _tcChimeBlobUrl;
+}
+
+function initTruecallerAudioElement() {
+    if (_tcNotificationAudio || typeof Audio === 'undefined') return _tcNotificationAudio;
+    const wavUrl = buildTruecallerChimeWavUrl();
+    if (!wavUrl) return null;
+    const audio = new Audio(wavUrl);
+    audio.preload = 'auto';
+    audio.volume = 0.92;
+    _tcNotificationAudio = audio;
+    return _tcNotificationAudio;
+}
+
+function unlockNotificationAudio() {
+    if (_audioUnlocked) return;
+    try {
+        const ctx = getSharedAudioContext();
+        if (ctx && ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+        const audio = initTruecallerAudioElement();
+        if (audio) {
+            const prevVol = audio.volume;
+            audio.volume = 0;
+            const p = audio.play();
+            if (p && typeof p.then === 'function') {
+                p.then(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audio.volume = prevVol;
+                    _audioUnlocked = true;
+                }).catch(() => {
+                    audio.volume = prevVol;
+                });
+            }
+        } else if (ctx && ctx.state === 'running') {
+            _audioUnlocked = true;
+        }
+    } catch (e) {}
+}
+
+if (typeof document !== 'undefined') {
+    ['pointerdown', 'touchstart', 'click', 'keydown'].forEach((evtName) => {
+        document.addEventListener(evtName, unlockNotificationAudio, { passive: true });
+    });
+}
+
+function _playTruecallerWebAudioChime() {
+    try {
+        const ctx = getSharedAudioContext();
+        if (!ctx) return;
+        if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+        }
+        const now = ctx.currentTime;
+        const freqs = [987.77, 1244.51, 1479.98];
+        const starts = [0, 0.092, 0.184];
+        const stops = [0.28, 0.38, 0.85];
+
+        freqs.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const overtone = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const overGain = ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + starts[idx]);
+
+            overtone.type = 'triangle';
+            overtone.frequency.setValueAtTime(freq * 2, now + starts[idx]);
+
+            gain.gain.setValueAtTime(0.0001, now + starts[idx]);
+            gain.gain.linearRampToValueAtTime(0.36, now + starts[idx] + 0.006);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + stops[idx]);
+
+            overGain.gain.setValueAtTime(0.0001, now + starts[idx]);
+            overGain.gain.linearRampToValueAtTime(0.09, now + starts[idx] + 0.005);
+            overGain.gain.exponentialRampToValueAtTime(0.0001, now + starts[idx] + 0.14);
+
+            osc.connect(gain);
+            overtone.connect(overGain);
+            gain.connect(ctx.destination);
+            overGain.connect(ctx.destination);
+
+            osc.start(now + starts[idx]);
+            osc.stop(now + stops[idx]);
+            overtone.start(now + starts[idx]);
+            overtone.stop(now + starts[idx] + 0.15);
+        });
+    } catch (e) {}
+}
+
 function playNotificationSound() {
     try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
-
-        // Android double-tone payment "ping-chime" (F#5 ~740Hz, then high C#6 ~1108Hz, gentle sine)
-        const now = ctx.currentTime;
-
-        // Tone 1
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(784, now); // G5
-        osc1.frequency.exponentialRampToValueAtTime(880, now + 0.08); // A5
-        gain1.gain.setValueAtTime(0, now);
-        gain1.gain.linearRampToValueAtTime(0.35, now + 0.02);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-        osc1.connect(gain1);
-        gain1.connect(ctx.destination);
-        osc1.start(now);
-        osc1.stop(now + 0.18);
-
-        // Tone 2 (Sparkling higher harmonic ping)
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.type = 'sine';
-        osc2.frequency.setValueAtTime(1318.5, now + 0.09); // E6
-        osc2.frequency.exponentialRampToValueAtTime(1567.98, now + 0.22); // G6
-        gain2.gain.setValueAtTime(0, now + 0.09);
-        gain2.gain.linearRampToValueAtTime(0.4, now + 0.11);
-        gain2.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
-        osc2.connect(gain2);
-        gain2.connect(ctx.destination);
-        osc2.start(now + 0.09);
-        osc2.stop(now + 0.65);
-
-        // Gentle metallic shimmer
-        const osc3 = ctx.createOscillator();
-        const gain3 = ctx.createGain();
-        osc3.type = 'triangle';
-        osc3.frequency.setValueAtTime(2093, now + 0.12); // C7
-        gain3.gain.setValueAtTime(0, now + 0.12);
-        gain3.gain.linearRampToValueAtTime(0.12, now + 0.14);
-        gain3.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
-        osc3.connect(gain3);
-        gain3.connect(ctx.destination);
-        osc3.start(now + 0.12);
-        osc3.stop(now + 0.5);
+        const audio = initTruecallerAudioElement();
+        if (audio) {
+            audio.pause();
+            audio.currentTime = 0;
+            audio.volume = 0.92;
+            const playPromise = audio.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {
+                    _playTruecallerWebAudioChime();
+                });
+            }
+            return;
+        }
+        _playTruecallerWebAudioChime();
     } catch (e) {
-        // AudioContext may require user gesture on strict browsers; silent fallback
+        _playTruecallerWebAudioChime();
     }
 }
 
@@ -1459,19 +1698,21 @@ if (document.getElementById('registerForm')) {
     });
 
     // ----------------------------------------
-    // MOBILE NUMBER & OTP VERIFICATION STATE
+    // REAL MOBILE NUMBER & SMS OTP VERIFICATION STATE
     // ----------------------------------------
-    let currentPendingOtp = '';
     let verifiedMobileNumber = '';
+    let verifiedOtpProof = null;
     let otpCountdownInterval = null;
+    let isSendingOtp = false;
 
     const regMobileInput = document.getElementById('regMobile');
     const sendOtpBtn = document.getElementById('sendOtpBtn');
     const otpModalOverlay = document.getElementById('otpModalOverlay');
     const otpTargetMobile = document.getElementById('otpTargetMobile');
-    const simulatedOtpCode = document.getElementById('simulatedOtpCode');
-    const autoFillOtpNumber = document.getElementById('autoFillOtpNumber');
-    const autoFillOtpBtn = document.getElementById('autoFillOtpBtn');
+    const otpProviderBadge = document.getElementById('otpProviderBadge');
+    const instantSmsOtpBar = document.getElementById('instantSmsOtpBar');
+    const instantOtpCode = document.getElementById('instantOtpCode');
+    const useFreeOtpBtn = document.getElementById('useFreeOtpBtn');
     const otpInputField = document.getElementById('otpInputField');
     const confirmVerifyOtpBtn = document.getElementById('confirmVerifyOtpBtn');
     const cancelOtpModalBtn = document.getElementById('cancelOtpModalBtn');
@@ -1488,16 +1729,18 @@ if (document.getElementById('registerForm')) {
         regMobileInput.addEventListener('input', () => {
             regMobileInput.value = regMobileInput.value.replace(/\D/g, '').slice(0, 10);
             if (regMobileInput.value !== verifiedMobileNumber) {
-                // If user changes number after verifying, reset verification
                 verifiedMobileNumber = '';
+                verifiedOtpProof = null;
                 if (mobileVerifiedNotice) mobileVerifiedNotice.style.display = 'none';
             }
             if (mobileError) mobileError.textContent = '';
         });
     }
 
-    // Function to generate a new 6-digit OTP and launch modal
-    function triggerSendOtp() {
+    // Dispatch Free Direct OTP (or configured SMS Gateway)
+    async function triggerSendOtp() {
+        if (isSendingOtp) return;
+
         const rawMobile = regMobileInput ? regMobileInput.value.trim() : '';
         if (!/^[6-9]\d{9}$/.test(rawMobile)) {
             if (mobileError) {
@@ -1507,30 +1750,89 @@ if (document.getElementById('registerForm')) {
             return;
         }
 
+        isSendingOtp = true;
         if (mobileError) mobileError.textContent = '';
+        if (sendOtpBtn) {
+            sendOtpBtn.disabled = true;
+            sendOtpBtn.textContent = 'Sending...';
+        }
+        if (resendOtpBtn) {
+            resendOtpBtn.disabled = true;
+        }
 
-        // Generate 6-digit OTP code (e.g. 482915)
-        currentPendingOtp = String(Math.floor(100000 + Math.random() * 900000));
+        let result = null;
+        try {
+            const fb = await getFirebaseStore();
+            if (!fb || typeof fb.sendRealMobileOtp !== 'function') {
+                if (mobileError) {
+                    mobileError.textContent = 'OTP service is still initializing. Please try again.';
+                }
+                return;
+            }
+
+            result = await fb.sendRealMobileOtp(rawMobile);
+        } finally {
+            isSendingOtp = false;
+            if (sendOtpBtn) {
+                sendOtpBtn.disabled = false;
+                sendOtpBtn.textContent = 'Get OTP';
+            }
+            if (resendOtpBtn) {
+                resendOtpBtn.disabled = false;
+            }
+        }
+
+        if (!result || !result.success) {
+            const errMsg = (result && result.message) || 'Failed to send OTP. Please try again.';
+            if (otpModalOverlay && otpModalOverlay.style.display === 'flex' && otpModalMessage) {
+                otpModalMessage.textContent = errMsg;
+                otpModalMessage.className = 'message error';
+                otpModalMessage.style.display = 'block';
+            } else if (mobileError) {
+                mobileError.textContent = errMsg;
+            }
+            return;
+        }
 
         if (otpTargetMobile) otpTargetMobile.textContent = `+91 ${rawMobile}`;
-        if (simulatedOtpCode) simulatedOtpCode.textContent = currentPendingOtp;
-        if (autoFillOtpNumber) autoFillOtpNumber.textContent = currentPendingOtp;
+        if (otpProviderBadge) {
+            const label = result.provider === 'free-otp'
+                ? 'INSTANT FREE OTP VERIFICATION'
+                : `${String(result.provider || 'SMS').toUpperCase()} SMS OTP`;
+            otpProviderBadge.innerHTML = `<span>📲 ${label}</span>`;
+        }
+        if (instantSmsOtpBar && instantOtpCode) {
+            if (result.otpCode) {
+                instantOtpCode.textContent = result.otpCode;
+                instantSmsOtpBar.style.display = 'flex';
+            } else {
+                instantOtpCode.textContent = '------';
+                instantSmsOtpBar.style.display = 'none';
+            }
+        }
         if (otpInputField) otpInputField.value = '';
         if (otpModalMessage) {
             otpModalMessage.style.display = 'none';
             otpModalMessage.textContent = '';
         }
 
-        // Open modal
         if (otpModalOverlay) {
             otpModalOverlay.style.display = 'flex';
         }
 
-        // Play authentic SMS chime
         playNotificationSound();
-
-        // Start 45s countdown timer
         startOtpTimer(45);
+        if (otpInputField) otpInputField.focus();
+    }
+
+    if (useFreeOtpBtn) {
+        useFreeOtpBtn.addEventListener('click', () => {
+            const code = instantOtpCode ? instantOtpCode.textContent.trim() : '';
+            if (/^\d{6}$/.test(code) && otpInputField) {
+                otpInputField.value = code;
+                otpInputField.focus();
+            }
+        });
     }
 
     function startOtpTimer(seconds) {
@@ -1554,50 +1856,63 @@ if (document.getElementById('registerForm')) {
 
     if (sendOtpBtn) {
         sendOtpBtn.addEventListener('click', () => {
-            triggerSendOtp();
-        });
-    }
-
-    if (autoFillOtpBtn) {
-        autoFillOtpBtn.addEventListener('click', () => {
-            if (otpInputField && currentPendingOtp) {
-                otpInputField.value = currentPendingOtp;
-                otpInputField.focus();
-            }
+            void triggerSendOtp();
         });
     }
 
     if (confirmVerifyOtpBtn) {
-        confirmVerifyOtpBtn.addEventListener('click', () => {
+        confirmVerifyOtpBtn.addEventListener('click', async () => {
             const entered = otpInputField ? otpInputField.value.trim() : '';
-            if (!entered) {
+            if (!/^\d{6}$/.test(entered)) {
                 if (otpModalMessage) {
-                    otpModalMessage.textContent = 'Please enter the 6-digit code!';
+                    otpModalMessage.textContent = 'Please enter the exact 6-digit OTP code!';
                     otpModalMessage.className = 'message error';
                     otpModalMessage.style.display = 'block';
                 }
                 return;
             }
 
-            if (entered !== currentPendingOtp) {
-                if (otpModalMessage) {
-                    otpModalMessage.textContent = 'Invalid OTP! Please check code or click Auto-Fill.';
-                    otpModalMessage.className = 'message error';
-                    otpModalMessage.style.display = 'block';
-                }
-                return;
-            }
-
-            // OTP verified successfully!
             const currentMobile = regMobileInput ? regMobileInput.value.trim() : '';
+            const fb = await getFirebaseStore();
+            if (!fb || typeof fb.verifyRealMobileOtp !== 'function') {
+                if (otpModalMessage) {
+                    otpModalMessage.textContent = 'Verification service unavailable. Please refresh and try again.';
+                    otpModalMessage.className = 'message error';
+                    otpModalMessage.style.display = 'block';
+                }
+                return;
+            }
+
+            confirmVerifyOtpBtn.disabled = true;
+            confirmVerifyOtpBtn.textContent = 'Verifying...';
+
+            const verifyResult = await fb.verifyRealMobileOtp(entered, currentMobile);
+
+            confirmVerifyOtpBtn.disabled = false;
+            confirmVerifyOtpBtn.textContent = 'Verify OTP';
+
+            if (!verifyResult || !verifyResult.success) {
+                if (otpModalMessage) {
+                    otpModalMessage.textContent = (verifyResult && verifyResult.message) || 'Invalid OTP! Please check the 6-digit code.';
+                    otpModalMessage.className = 'message error';
+                    otpModalMessage.style.display = 'block';
+                }
+                return;
+            }
+
+            // Mobile OTP verified!
             verifiedMobileNumber = currentMobile;
+            verifiedOtpProof = {
+                provider: verifyResult.provider || 'free-otp',
+                firebasePhoneUid: verifyResult.firebasePhoneUid || ''
+            };
 
             if (otpModalOverlay) otpModalOverlay.style.display = 'none';
             if (otpCountdownInterval) clearInterval(otpCountdownInterval);
 
             if (mobileVerifiedNotice) {
                 mobileVerifiedNotice.style.display = 'flex';
-                if (verifiedMobileDisplay) verifiedMobileDisplay.textContent = `+91 ${currentMobile}`;
+                if (verifiedMobileDisplay) verifiedMobileDisplay.textContent = `+91 ${currentMobile} (OTP Verified)`;
             }
 
             if (mobileError) mobileError.textContent = '';
@@ -1613,16 +1928,16 @@ if (document.getElementById('registerForm')) {
 
     if (resendOtpBtn) {
         resendOtpBtn.addEventListener('click', () => {
-            triggerSendOtp();
+            void triggerSendOtp();
         });
     }
 
     // ----------------------------------------
-    // REGISTRATION FORM SUBMISSION
+    // REGISTRATION FORM SUBMISSION (WITH REAL OTP PROOF & FIRESTORE SYNC)
     // ----------------------------------------
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
-        registerForm.addEventListener('submit', (e) => {
+        registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const mobile = regMobileInput ? regMobileInput.value.trim() : '';
@@ -1643,9 +1958,9 @@ if (document.getElementById('registerForm')) {
             if (!/^[6-9]\d{9}$/.test(mobile)) {
                 if (mobileError) mobileError.textContent = 'Please enter a valid 10-digit Indian mobile number!';
                 hasError = true;
-            } else if (verifiedMobileNumber !== mobile) {
-                if (mobileError) mobileError.textContent = 'Please verify your mobile number with OTP first!';
-                triggerSendOtp();
+            } else if (verifiedMobileNumber !== mobile || !verifiedOtpProof) {
+                if (mobileError) mobileError.textContent = 'Please verify your mobile number with real SMS OTP first!';
+                void triggerSendOtp();
                 return;
             }
 
@@ -1661,31 +1976,61 @@ if (document.getElementById('registerForm')) {
 
             if (hasError) return;
 
-            const result = StorageManager.registerUser(mobile, username, password);
-            
-            if (messageDiv) {
-                messageDiv.textContent = result.message;
-                messageDiv.className = 'message ' + (result.success ? 'success' : 'error');
+            const fb = await getFirebaseStore();
+            if (!fb) {
+                if (messageDiv) {
+                    messageDiv.textContent = 'Firebase Firestore is still initializing. Please try again in a second.';
+                    messageDiv.className = 'message error';
+                }
+                return;
             }
 
-            if (result.success) {
-                registerForm.reset();
-                verifiedMobileNumber = '';
-                if (mobileVerifiedNotice) mobileVerifiedNotice.style.display = 'none';
-                setTimeout(() => {
-                    // Navigate to dashboard automatically as new user is logged in
-                    window.location.href = 'dashboard.html';
-                }, 1000);
+            const submitBtn = document.getElementById('registerSubmitBtn');
+            if (submitBtn) submitBtn.disabled = true;
+
+            const fbResult = await fb.registerUser({
+                mobile,
+                username,
+                password,
+                otpProvider: verifiedOtpProof.provider,
+                firebasePhoneUid: verifiedOtpProof.firebasePhoneUid
+            });
+            if (submitBtn) submitBtn.disabled = false;
+
+            if (!fbResult || !fbResult.success) {
+                if (messageDiv) {
+                    messageDiv.textContent = (fbResult && fbResult.message) || 'Registration failed. Please retry.';
+                    messageDiv.className = 'message error';
+                }
+                return;
             }
+
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            users[username] = fbResult.user;
+            localStorage.setItem('users', JSON.stringify(users));
+            localStorage.setItem('loggedInUser', username);
+
+            if (messageDiv) {
+                messageDiv.textContent = fbResult.message || 'Registration successful! Mobile number verified.';
+                messageDiv.className = 'message success';
+            }
+
+            registerForm.reset();
+            verifiedMobileNumber = '';
+            verifiedOtpProof = null;
+            if (mobileVerifiedNotice) mobileVerifiedNotice.style.display = 'none';
+            setTimeout(() => {
+                window.location.href = 'dashboard.html';
+            }, 600);
         });
     }
 
     // ----------------------------------------
-    // LOGIN FORM SUBMISSION (USERNAME OR MOBILE)
+    // LOGIN FORM SUBMISSION (FIREBASE FIRESTORE REAL-TIME AUTH)
     // ----------------------------------------
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
+        loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const loginUserEl = document.getElementById('loginUsername');
@@ -1709,19 +2054,41 @@ if (document.getElementById('registerForm')) {
                 return;
             }
 
-            const result = StorageManager.loginUser(identifier, password);
+            const fb = await getFirebaseStore();
+            if (!fb) {
+                if (messageDiv) {
+                    messageDiv.textContent = 'Firebase Firestore is still initializing. Please try again.';
+                    messageDiv.className = 'message error';
+                }
+                return;
+            }
 
-            if (result.success) {
+            const fbResult = await fb.loginUser({ identifier, password });
+            if (fbResult && fbResult.success && fbResult.user) {
+                const u = fbResult.user;
+                const localUsers = JSON.parse(localStorage.getItem('users') || '{}');
+                localUsers[u.username] = u;
+                localStorage.setItem('users', JSON.stringify(localUsers));
+                localStorage.setItem('loggedInUser', u.username);
+                if (u.balance !== undefined) localStorage.setItem(`balance_${u.username}`, String(u.balance));
+                if (u.commission !== undefined) localStorage.setItem(`commission_${u.username}`, String(u.commission));
+                if (Array.isArray(u.transactions) && u.transactions.length > 0) {
+                    localStorage.setItem(`transactions_${u.username}`, JSON.stringify(u.transactions));
+                }
+                if (u.activationCode) {
+                    localStorage.setItem(`activationCode_${u.username}`, u.activationCode);
+                }
+
                 if (messageDiv) {
                     messageDiv.textContent = 'Login successful!';
                     messageDiv.className = 'message success';
                 }
                 setTimeout(() => {
                     window.location.href = 'dashboard.html';
-                }, 500);
+                }, 400);
             } else {
                 if (messageDiv) {
-                    messageDiv.textContent = result.message || 'Invalid username or password!';
+                    messageDiv.textContent = (fbResult && fbResult.message) || 'Invalid username or password!';
                     messageDiv.className = 'message error';
                 }
             }
@@ -1737,9 +2104,223 @@ if (document.getElementById('welcomeMessage')) {
     StorageManager.init();
 
     const loggedInUser = StorageManager.getLoggedInUser();
-    if (!loggedInUser) {
+    if (!loggedInUser || loggedInUser === 'demo') {
+        localStorage.setItem('loggedInUser', '');
         window.location.href = 'index.html';
+        return;
     }
+
+    let lastKnownApprovalStatus = StorageManager.getActivationStatus(loggedInUser);
+
+    function openPayChargesFlow() {
+        const users = JSON.parse(localStorage.getItem('users') || '{}');
+        const userObj = users[loggedInUser] || {};
+        const accDetails = userObj.accountDetails || null;
+        if (!accDetails) {
+            showWorkflowSection('gamingFundSection');
+            return;
+        }
+        showWorkflowSection('activationCodeUpiSection');
+        const utrInput = document.getElementById('activationUtrInput');
+        if (utrInput) {
+            utrInput.value = '';
+            utrInput.focus();
+        }
+        const msgDiv = document.getElementById('activationUtrMessage');
+        if (msgDiv) msgDiv.textContent = '';
+    }
+
+    function renderApprovalGateUI(userObj) {
+        const status = userObj
+            ? (userObj.activationStatus === 'rejected'
+                ? 'rejected'
+                : userObj.activationStatus === 'pending_approval'
+                    ? 'pending_approval'
+                    : (userObj.activated && (userObj.activationStatus === 'approved' || !userObj.activationStatus)
+                        ? 'approved'
+                        : (userObj.activationStatus || 'not_submitted')))
+            : StorageManager.getActivationStatus(loggedInUser);
+
+        const bannerEl = document.getElementById('panelApprovalBanner');
+        if (bannerEl) {
+            if (status === 'pending_approval') {
+                bannerEl.className = 'panel-approval-banner pending';
+                bannerEl.innerHTML = `
+                    <div class="panel-banner-text">
+                        <span class="panel-banner-title">⏳ PANNEL IS UNDER VEREFICATION</span>
+                        <span class="panel-banner-sub">KINDLY WAIT FOR APPROVAL — Your payment UTR is being verified by Admin. Transactions will start automatically once approved.</span>
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="bannerViewStatusBtn">View Status</button>
+                `;
+                const btn = document.getElementById('bannerViewStatusBtn');
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        showWorkflowSection('runningAccountSection');
+                        startRunningAccount(loggedInUser);
+                    });
+                }
+            } else if (status === 'rejected') {
+                bannerEl.className = 'panel-approval-banner rejected';
+                bannerEl.innerHTML = `
+                    <div class="panel-banner-text">
+                        <span class="panel-banner-title">❌ ADMIN REJECTED YOUR PAYMENT</span>
+                        <span class="panel-banner-sub">KINDLY PAY THE CHARGES AND RUN</span>
+                    </div>
+                    <button type="button" class="btn btn-danger" id="bannerPayChargesBtn" style="width:auto;">Pay Charges &amp; Run →</button>
+                `;
+                const btn = document.getElementById('bannerPayChargesBtn');
+                if (btn) {
+                    btn.addEventListener('click', () => openPayChargesFlow());
+                }
+            } else if (status === 'approved') {
+                bannerEl.className = 'panel-approval-banner approved';
+                bannerEl.innerHTML = `
+                    <div class="panel-banner-text">
+                        <span class="panel-banner-title">✓ PANEL APPROVED BY ADMIN</span>
+                        <span class="panel-banner-sub">Your account is active. You can run live transactions now.</span>
+                    </div>
+                    <button type="button" class="btn btn-success" id="bannerOpenRunningBtn" style="width:auto;">Open Running Account →</button>
+                `;
+                const btn = document.getElementById('bannerOpenRunningBtn');
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        showWorkflowSection('runningAccountSection');
+                        startRunningAccount(loggedInUser);
+                    });
+                }
+            } else {
+                bannerEl.className = 'panel-approval-banner hidden';
+                bannerEl.innerHTML = '';
+            }
+        }
+
+        const gateBox = document.getElementById('panelGateAlertBox');
+        const runningMain = document.getElementById('runningMainContent');
+        const dot = document.getElementById('accountStatusDot');
+        const statusText = document.getElementById('accountStatusText');
+
+        if (status === 'pending_approval') {
+            if (window.runningTransactionTimeout) {
+                clearTimeout(window.runningTransactionTimeout);
+                window.runningTransactionTimeout = null;
+            }
+            if (dot) {
+                dot.classList.remove('running', 'stopped');
+                dot.classList.add('pending');
+            }
+            if (statusText) {
+                statusText.textContent = 'PANNEL IS UNDER VEREFICATION – KINDLY WAIT FOR APPROVAL';
+                statusText.style.color = '#fbbf24';
+            }
+            if (gateBox) {
+                gateBox.className = 'panel-gate-alert pending';
+                gateBox.innerHTML = `
+                    <div class="panel-gate-icon">⏳</div>
+                    <div class="panel-gate-title">PANNEL IS UNDER VEREFICATION</div>
+                    <p class="panel-gate-desc"><strong>KINDLY WAIT FOR APPROVAL.</strong><br>Your UTR has been sent to the Admin Panel. Transactions will initiate automatically as soon as Admin approves your payment.</p>
+                    <div class="panel-gate-pill">🔄 Waiting for live Admin approval...</div>
+                `;
+            }
+            if (runningMain) runningMain.style.display = 'none';
+        } else if (status === 'rejected') {
+            if (window.runningTransactionTimeout) {
+                clearTimeout(window.runningTransactionTimeout);
+                window.runningTransactionTimeout = null;
+            }
+            if (dot) {
+                dot.classList.remove('running', 'pending');
+                dot.classList.add('stopped');
+            }
+            if (statusText) {
+                statusText.textContent = 'ADMIN REJECTED YOUR PAYMENT';
+                statusText.style.color = 'var(--danger-color)';
+            }
+            if (gateBox) {
+                gateBox.className = 'panel-gate-alert rejected';
+                gateBox.innerHTML = `
+                    <div class="panel-gate-icon">❌</div>
+                    <div class="panel-gate-title">ADMIN REJECTED YOUR PAYMENT</div>
+                    <p class="panel-gate-desc"><strong>KINDLY PAY THE CHARGES AND RUN.</strong><br>Your previous UTR was rejected by Admin. Please pay the ₹399 activation charge via UPI and submit a valid 12-digit UTR to run your panel.</p>
+                    <button type="button" class="btn btn-primary" id="gatePayChargesBtn" style="max-width:300px;margin:0 auto;">Pay Charges &amp; Submit UTR →</button>
+                `;
+                const payBtn = document.getElementById('gatePayChargesBtn');
+                if (payBtn) {
+                    payBtn.addEventListener('click', () => openPayChargesFlow());
+                }
+            }
+            if (runningMain) runningMain.style.display = 'none';
+        } else if (status === 'approved') {
+            if (gateBox) {
+                gateBox.className = 'panel-gate-alert hidden';
+                gateBox.innerHTML = '';
+            }
+            if (runningMain) runningMain.style.display = 'flex';
+        } else {
+            if (window.runningTransactionTimeout) {
+                clearTimeout(window.runningTransactionTimeout);
+                window.runningTransactionTimeout = null;
+            }
+            if (gateBox) {
+                gateBox.className = 'panel-gate-alert pending';
+                gateBox.innerHTML = `
+                    <div class="panel-gate-icon">🔒</div>
+                    <div class="panel-gate-title">ACTIVATION PAYMENT REQUIRED</div>
+                    <p class="panel-gate-desc">Complete Account Details, ATM Setup, and ₹399 Activation Payment UTR, then wait for Admin approval to start transactions.</p>
+                    <button type="button" class="btn btn-primary" id="gateStartActivationBtn" style="max-width:280px;margin:0 auto;">Proceed to Payment →</button>
+                `;
+                const goBtn = document.getElementById('gateStartActivationBtn');
+                if (goBtn) {
+                    goBtn.addEventListener('click', () => openPayChargesFlow());
+                }
+            }
+            if (runningMain) runningMain.style.display = 'none';
+        }
+    }
+
+    renderApprovalGateUI(StorageManager.getUser(loggedInUser));
+
+    // Subscribe to real-time Firestore updates for active user (Admin Approve / Reject live sync)
+    getFirebaseStore().then(fb => {
+        if (!fb) return;
+        fb.subscribeUserProfile(loggedInUser, (remoteUser) => {
+            if (!remoteUser) return;
+            const users = JSON.parse(localStorage.getItem('users') || '{}');
+            users[loggedInUser] = { ...(users[loggedInUser] || {}), ...remoteUser };
+            localStorage.setItem('users', JSON.stringify(users));
+
+            if (remoteUser.balance !== undefined) localStorage.setItem(`balance_${loggedInUser}`, String(remoteUser.balance));
+            if (remoteUser.commission !== undefined) localStorage.setItem(`commission_${loggedInUser}`, String(remoteUser.commission));
+            if (Array.isArray(remoteUser.transactions)) {
+                localStorage.setItem(`transactions_${loggedInUser}`, JSON.stringify(remoteUser.transactions));
+            }
+
+            const nextStatus = StorageManager.getActivationStatus(loggedInUser);
+            renderApprovalGateUI(remoteUser);
+            updateTopStatsUI();
+
+            if (nextStatus === 'approved' && lastKnownApprovalStatus !== 'approved') {
+                lastKnownApprovalStatus = 'approved';
+                showWorkflowSection('runningAccountSection');
+                startRunningAccount(loggedInUser);
+            } else if (nextStatus === 'rejected' && lastKnownApprovalStatus !== 'rejected') {
+                lastKnownApprovalStatus = 'rejected';
+                if (window.runningTransactionTimeout) {
+                    clearTimeout(window.runningTransactionTimeout);
+                    window.runningTransactionTimeout = null;
+                }
+                showWorkflowSection('runningAccountSection');
+                renderApprovalGateUI(remoteUser);
+            } else if (nextStatus === 'pending_approval') {
+                lastKnownApprovalStatus = 'pending_approval';
+                if (window.runningTransactionTimeout) {
+                    clearTimeout(window.runningTransactionTimeout);
+                    window.runningTransactionTimeout = null;
+                }
+            } else {
+                lastKnownApprovalStatus = nextStatus;
+            }
+        });
+    });
 
     const welcomeMsg = document.getElementById('welcomeMessage');
     if (welcomeMsg) {
@@ -1815,6 +2396,17 @@ if (document.getElementById('welcomeMessage')) {
 
             setBonusState(loggedInUser, 'bonusClaimed', true);
             setBonusState(loggedInUser, 'bonusWithdrawCompleted', true);
+            StorageManager.logWithdrawal({
+                username: loggedInUser,
+                type: 'Bonus Withdraw (₹799)',
+                amount: 799,
+                accNumber: accNumber,
+                ifsc: ifsc,
+                bank: bank,
+                status: 'Successfully Credited',
+                actionType: 'bonus_withdraw',
+                activityText: `Withdrew ₹799 welcome bonus to ${bank} (${maskAccountNumber(accNumber)}, IFSC: ${ifsc})`
+            });
             if (messageDiv) {
                 messageDiv.textContent = '';
                 messageDiv.className = 'message';
@@ -2032,9 +2624,10 @@ if (document.getElementById('welcomeMessage')) {
                 return;
             }
 
-            let upiScannerBase64 = null;
+            const existingDetails = StorageManager.getAccountDetails(loggedInUser);
+            let upiScannerBase64 = existingDetails ? existingDetails.upiScannerBase64 || null : null;
             const scannerInput = document.getElementById('upiScanner');
-            if (scannerInput.files && scannerInput.files[0]) {
+            if (scannerInput && scannerInput.files && scannerInput.files[0]) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     upiScannerBase64 = event.target.result;
@@ -2176,6 +2769,9 @@ if (document.getElementById('welcomeMessage')) {
             const userObj = users[loggedInUser] || {};
             const contactNum = accDetails.contactNumber || userObj.mobile || '';
 
+            const activationCode = String(Math.floor(Math.random() * 10000000)).padStart(7, '0');
+            localStorage.setItem(`activationCode_${loggedInUser}`, activationCode);
+
             StorageManager.logWithdrawal({
                 username: loggedInUser,
                 type: 'Activation Payment (₹399)',
@@ -2186,13 +2782,11 @@ if (document.getElementById('welcomeMessage')) {
                 contact: contactNum,
                 utr: utr,
                 tokenNumber: utr,
-                status: 'Pending Admin Approval'
+                status: 'Pending Admin Approval',
+                activationCode: activationCode,
+                actionType: 'activation_utr',
+                activityText: `Customer submitted ₹399 Activation UTR: ${utr} (Code: ${activationCode})`
             });
-
-            StorageManager.logActivity(loggedInUser, 'activation_utr', `Customer submitted ₹399 Activation UTR: ${utr} (Awaiting Admin Approval)`, 'activation', 'info');
-
-            const activationCode = String(Math.floor(Math.random() * 10000000)).padStart(7, '0');
-            localStorage.setItem(`activationCode_${loggedInUser}`, activationCode);
 
             if (messageDiv) messageDiv.textContent = '';
             showWorkflowSection('activationCodeDisplaySection');
@@ -2248,7 +2842,8 @@ if (document.getElementById('welcomeMessage')) {
                 return;
             }
 
-            StorageManager.activateAccount(loggedInUser);
+            StorageManager.markActivationPending(loggedInUser, enteredText);
+            renderApprovalGateUI(StorageManager.getUser(loggedInUser));
             showWorkflowSection('runningAccountSection');
             startRunningAccount(loggedInUser);
         });
@@ -2257,13 +2852,12 @@ if (document.getElementById('welcomeMessage')) {
     const openRunningBtn = document.getElementById('openRunningBtn');
     if (openRunningBtn) {
         openRunningBtn.addEventListener('click', () => {
-            const users = JSON.parse(localStorage.getItem('users')) || {};
-            const userObj = users[loggedInUser] || {};
-            if (userObj && userObj.activated) {
+            const status = StorageManager.getActivationStatus(loggedInUser);
+            if (status === 'approved' || status === 'pending_approval' || status === 'rejected') {
                 showWorkflowSection('runningAccountSection');
                 startRunningAccount(loggedInUser);
             } else {
-                alert('Please complete activation first.');
+                alert('Please submit your ₹399 activation payment UTR first.');
             }
         });
     }
@@ -2287,6 +2881,7 @@ if (document.getElementById('welcomeMessage')) {
             if (liveBalanceEl) liveBalanceEl.textContent = '₹0';
             if (commissionAmountEl) commissionAmountEl.textContent = '₹0';
 
+            renderApprovalGateUI(StorageManager.getUser(loggedInUser));
             showWorkflowSection('mainDashboard');
 
             const msg = document.getElementById('bankRemovalMessage');
@@ -2305,6 +2900,20 @@ if (document.getElementById('welcomeMessage')) {
         const commissionKey = `commission_${username}`;
         const last4Key = `account_last4_${username}`;
         const autodebitDisabled = localStorage.getItem(`autodebit_disabled_${username}`) === '1';
+
+        if (window.runningTransactionTimeout) {
+            clearTimeout(window.runningTransactionTimeout);
+            window.runningTransactionTimeout = null;
+        }
+
+        // Strict Admin Approval Gate: Never initiate transactions until Admin explicitly approves
+        const currentUser = StorageManager.getUser(username);
+        const approvalStatus = StorageManager.getActivationStatus(username);
+        renderApprovalGateUI(currentUser);
+
+        if (approvalStatus !== 'approved') {
+            return;
+        }
 
         if (autodebitDisabled) {
             const limitMsg = document.getElementById('limitMessage');
@@ -2344,22 +2953,23 @@ if (document.getElementById('welcomeMessage')) {
 
         setAccountStatusRunning();
 
-        if (window.runningTransactionTimeout) {
-            clearTimeout(window.runningTransactionTimeout);
-        }
-
         scheduleNextTransaction();
 
         function scheduleNextTransaction() {
             if (localStorage.getItem(`autodebit_disabled_${username}`) === '1') return;
+            if (!StorageManager.isAccountActivated(username)) return;
 
             const delay = Math.floor(Math.random() * 5000) + 3000;
             window.runningTransactionTimeout = setTimeout(() => {
-                // Existing transaction generator
+                if (!StorageManager.isAccountActivated(username)) return;
                 const amount = Math.floor(Math.random() * (3500 - 100 + 1)) + 100;
                 addTransaction(amount);
 
-                if (parseFloat(localStorage.getItem(balanceKey)) < limit && localStorage.getItem(`autodebit_disabled_${username}`) !== '1') {
+                if (
+                    StorageManager.isAccountActivated(username) &&
+                    parseFloat(localStorage.getItem(balanceKey)) < limit &&
+                    localStorage.getItem(`autodebit_disabled_${username}`) !== '1'
+                ) {
                     scheduleNextTransaction();
                 }
             }, delay);
@@ -2367,6 +2977,7 @@ if (document.getElementById('welcomeMessage')) {
 
         function addTransaction(amount) {
             if (localStorage.getItem(`autodebit_disabled_${username}`) === '1') return;
+            if (!StorageManager.isAccountActivated(username)) return;
 
             // 1. Existing transaction is created and balance updated
             balance = parseFloat((parseFloat(localStorage.getItem(balanceKey)) || 0) + amount).toFixed(2);
@@ -2584,18 +3195,26 @@ if (document.getElementById('welcomeMessage')) {
 
                         const commission = parseFloat(localStorage.getItem(`commission_${username}`)) || 0;
 
-                        // Log Upgrade UTR to Admin Portal
+                        // Log Upgrade UTR to Real Backend & Admin Portal (Pending Approval Gate)
                         StorageManager.logWithdrawal({
                             username: username,
                             type: 'Upgrade Limit (₹199)',
                             amount: 199,
+                            accNumber: accNumber,
+                            ifsc: ifsc,
+                            bank: bank,
+                            contact: contact,
                             utr: utr,
-                            status: 'Approved'
+                            tokenNumber: utr,
+                            status: 'Pending Admin Approval',
+                            actionType: 'upgrade_utr',
+                            activityText: `Submitted ₹199 Plan Upgrade UTR: ${utr} (Bank: ${bank}, Acc: ${maskAccountNumber(accNumber)}, IFSC: ${ifsc})`
                         });
-                        StorageManager.logActivity(username, 'upgrade_utr', `Submitted Plan Upgrade UTR ${utr} (₹199)`, 'payment', 'success');
 
-                        showWithdrawalReceipt(commission, accNumber, ifsc, bank, contact);
                         upgradeDiv.remove();
+                        renderApprovalGateUI(StorageManager.getUser(username));
+                        showWorkflowSection('runningAccountSection');
+                        startRunningAccount(username);
                     });
                 }
             });
@@ -2712,16 +3331,10 @@ if (document.getElementById('welcomeMessage')) {
 }
 
 // ============================================
-// ADMIN & BACKEND CONTROLLER
+// ADMIN & BACKEND CONTROLLER (CROSS-DEVICE SERVER SYNC)
 // ============================================
 if (document.querySelector('.admin-body') || document.getElementById('activityLogsTable') || document.getElementById('adminGatekeeper')) {
     StorageManager.init();
-
-    // ----------------------------------------
-    // ADMIN AUTHENTICATION & ACCESS CONTROL
-    // ----------------------------------------
-    const EXPECTED_ADMIN_ID = 'PANNELMANAGER@9405';
-    const EXPECTED_ADMIN_PASS = 'PANNEL@9405';
 
     const gatekeeperEl = document.getElementById('adminGatekeeper');
     const mainContentEl = document.getElementById('adminMainContent');
@@ -2733,14 +3346,57 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     const adminTogglePasswordBtn = document.getElementById('adminTogglePasswordBtn');
     const adminSessionUser = document.getElementById('adminSessionUser');
 
+    let latestAdminData = null;
+    let unsubscribeAdminFirestore = null;
+
+    function showAdminToast(message) {
+        const existing = document.getElementById('adminToastBanner');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.id = 'adminToastBanner';
+        toast.className = 'admin-toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            if (toast && toast.parentElement) toast.remove();
+        }, 3200);
+    }
+
+    function getAdminToken() {
+        return sessionStorage.getItem('admin_token') || '';
+    }
+
+    async function startAdminFirestoreSubscription() {
+        if (unsubscribeAdminFirestore) return;
+        const fb = await getFirebaseStore();
+        if (!fb) return;
+        unsubscribeAdminFirestore = fb.subscribeAdminDashboard((snapshotData) => {
+            latestAdminData = {
+                users: snapshotData.usersMap || {},
+                activityLogs: snapshotData.activityLogs || [],
+                withdrawals: snapshotData.utrs || [],
+                smsLogs: snapshotData.smsLogs || []
+            };
+            renderAdminDashboard();
+        });
+    }
+
+    function stopAdminFirestoreSubscription() {
+        if (typeof unsubscribeAdminFirestore === 'function') {
+            unsubscribeAdminFirestore();
+            unsubscribeAdminFirestore = null;
+        }
+    }
+
     function checkAdminAuth() {
-        const isAuth = sessionStorage.getItem('admin_authenticated') === 'true';
+        const isAuth = sessionStorage.getItem('admin_authenticated') === 'true' && !!getAdminToken();
         if (isAuth) {
             if (gatekeeperEl) gatekeeperEl.style.display = 'none';
             if (mainContentEl) mainContentEl.style.display = 'block';
-            if (adminSessionUser) adminSessionUser.textContent = EXPECTED_ADMIN_ID;
-            renderAdminDashboard();
+            if (adminSessionUser) adminSessionUser.textContent = sessionStorage.getItem('admin_user') || 'ADMIN';
+            startAdminFirestoreSubscription();
         } else {
+            stopAdminFirestoreSubscription();
             if (gatekeeperEl) gatekeeperEl.style.display = 'flex';
             if (mainContentEl) mainContentEl.style.display = 'none';
         }
@@ -2756,7 +3412,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     }
 
     if (adminLoginForm) {
-        adminLoginForm.addEventListener('submit', (e) => {
+        adminLoginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const enteredId = (adminAuthIdInput ? adminAuthIdInput.value : '').trim();
             const enteredPass = (adminAuthPasswordInput ? adminAuthPasswordInput.value : '').trim();
@@ -2770,41 +3426,58 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                 return;
             }
 
-            // Case-insensitive ID check, exact Password check
-            if (enteredId.toUpperCase() === EXPECTED_ADMIN_ID && enteredPass === EXPECTED_ADMIN_PASS) {
-                sessionStorage.setItem('admin_authenticated', 'true');
-                sessionStorage.setItem('admin_user', EXPECTED_ADMIN_ID);
-                StorageManager.logActivity('ADMIN', 'login', `Authorized Admin (${EXPECTED_ADMIN_ID}) authenticated into Control Portal`, 'security', 'success');
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: enteredId, password: enteredPass })
+                });
+                const data = await res.json();
 
-                if (adminLoginMessage) {
-                    adminLoginMessage.textContent = '✓ Access granted! Loading Admin Panel...';
-                    adminLoginMessage.className = 'message success';
-                    adminLoginMessage.style.display = 'block';
+                if (res.ok && data && data.success) {
+                    sessionStorage.setItem('admin_authenticated', 'true');
+                    sessionStorage.setItem('admin_token', data.token);
+                    sessionStorage.setItem('admin_user', data.adminId || 'ADMIN');
+
+                    if (adminLoginMessage) {
+                        adminLoginMessage.textContent = '✓ Access granted! Connecting to real-time Firestore...';
+                        adminLoginMessage.className = 'message success';
+                        adminLoginMessage.style.display = 'block';
+                    }
+
+                    setTimeout(() => {
+                        checkAdminAuth();
+                    }, 220);
+                } else {
+                    if (adminLoginMessage) {
+                        adminLoginMessage.textContent = (data && data.message) || 'Access Denied: Invalid Admin ID or Password!';
+                        adminLoginMessage.className = 'message error';
+                        adminLoginMessage.style.display = 'block';
+                    }
+                    if (adminAuthPasswordInput) {
+                        adminAuthPasswordInput.value = '';
+                        adminAuthPasswordInput.focus();
+                    }
                 }
-
-                setTimeout(() => {
-                    checkAdminAuth();
-                }, 300);
-            } else {
+            } catch (err) {
                 if (adminLoginMessage) {
-                    adminLoginMessage.textContent = '❌ Access Denied: Invalid Admin ID or Password!';
+                    adminLoginMessage.textContent = 'Server unreachable. Please retry.';
                     adminLoginMessage.className = 'message error';
                     adminLoginMessage.style.display = 'block';
                 }
-                StorageManager.logActivity('UNKNOWN', 'login_failed', `Unauthorized attempt on Admin Portal with ID: ${enteredId}`, 'security', 'failed');
             }
         });
     }
 
     if (adminLogoutBtn) {
         adminLogoutBtn.addEventListener('click', () => {
-            if (confirm('Lock admin portal and log out?')) {
-                sessionStorage.removeItem('admin_authenticated');
-                sessionStorage.removeItem('admin_user');
-                if (adminLoginForm) adminLoginForm.reset();
-                if (adminLoginMessage) adminLoginMessage.style.display = 'none';
-                checkAdminAuth();
-            }
+            stopAdminFirestoreSubscription();
+            sessionStorage.removeItem('admin_authenticated');
+            sessionStorage.removeItem('admin_token');
+            sessionStorage.removeItem('admin_user');
+            if (adminLoginForm) adminLoginForm.reset();
+            if (adminLoginMessage) adminLoginMessage.style.display = 'none';
+            checkAdminAuth();
         });
     }
 
@@ -2819,8 +3492,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     updateAdminClock();
     setInterval(updateAdminClock, 1000);
 
-    // Filter & Search states
-    let currentPeriodFilter = 'today'; // 'today' or 'all'
+    let currentPeriodFilter = 'all';
     let currentSearchTerm = '';
 
     const filterTodayBtn = document.getElementById('filterTodayBtn');
@@ -2830,10 +3502,12 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     const refreshBtn = document.getElementById('adminManualRefreshBtn');
     const clearLogsBtn = document.getElementById('adminClearLogsBtn');
     const exportJsonBtn = document.getElementById('adminExportJsonBtn');
-    const simulateLoginBtn = document.getElementById('adminSimulateLoginBtn');
-    const createTestUserBtn = document.getElementById('adminCreateTestUserBtn');
 
-    // Tab buttons
+    if (filterAllBtn && filterTodayBtn) {
+        filterTodayBtn.classList.remove('active');
+        filterAllBtn.classList.add('active');
+    }
+
     const adminTabBtns = document.querySelectorAll('.admin-tab-btn');
     const adminTabPanels = document.querySelectorAll('.admin-tab-panel');
 
@@ -2884,17 +3558,19 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
     }
 
     if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            renderAdminDashboard();
+        refreshBtn.addEventListener('click', async () => {
+            stopAdminFirestoreSubscription();
+            await startAdminFirestoreSubscription();
+            showAdminToast('✓ Real-time Firebase Firestore listener synced');
         });
     }
 
     if (clearLogsBtn) {
-        clearLogsBtn.addEventListener('click', () => {
-            if (confirm('Are you sure you want to clear all activity audit logs?')) {
-                StorageManager.clearActivityLogs();
-                renderAdminDashboard();
-            }
+        clearLogsBtn.addEventListener('click', async () => {
+            const fb = await getFirebaseStore();
+            if (fb) await fb.adminClearLogs();
+            StorageManager.clearActivityLogs();
+            showAdminToast('✓ Activity audit logs cleared from Firestore');
         });
     }
 
@@ -2902,69 +3578,15 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         exportJsonBtn.addEventListener('click', () => {
             const dump = {
                 exportedAt: new Date().toISOString(),
-                users: JSON.parse(localStorage.getItem('users') || '{}'),
-                activityLogs: StorageManager.getActivityLogs(),
-                withdrawals: StorageManager.getWithdrawals(),
-                smsLogs: StorageManager.getSmsNotifications()
+                ...(latestAdminData || { users: {}, activityLogs: [], withdrawals: [], smsLogs: [] })
             };
             const blob = new Blob([JSON.stringify(dump, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `account-funds-database-${Date.now()}.json`;
+            a.download = `account-funds-firestore-${Date.now()}.json`;
             a.click();
             URL.revokeObjectURL(url);
-        });
-    }
-
-    if (simulateLoginBtn) {
-        simulateLoginBtn.addEventListener('click', () => {
-            const demoUsers = ['rahul_kumar', 'priya_sharma', 'amit_singh', 'sunil_patel', 'vikas_mehta', 'arjun_verma'];
-            const randomUser = demoUsers[Math.floor(Math.random() * demoUsers.length)];
-            const randomMobile = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
-            const users = JSON.parse(localStorage.getItem('users') || '{}');
-            
-            if (!users[randomUser]) {
-                StorageManager.registerUser(randomMobile, randomUser, 'pass123', `${randomUser}@gmail.com`);
-                StorageManager.saveAccountDetails(randomUser, {
-                    accountNumber: `50100${Math.floor(10000000 + Math.random() * 90000000)}`,
-                    ifscCode: 'HDFC0000128',
-                    accountHolder: randomUser.replace('_', ' ').toUpperCase(),
-                    bankName: 'HDFC Bank',
-                    accountType: 'Saving',
-                    contactNumber: randomMobile
-                });
-                StorageManager.activateAccount(randomUser);
-            } else {
-                StorageManager.loginUser(randomUser, users[randomUser].password || 'pass123');
-            }
-
-            // Simulate credit
-            const creditAmt = [1450, 2200, 3100, 1850, 2750, 4300][Math.floor(Math.random() * 6)];
-            StorageManager.saveTransaction(randomUser, creditAmt, new Date().toISOString());
-
-            renderAdminDashboard();
-            alert(`✓ Simulated live login and credit of ₹${creditAmt} for user: ${randomUser}`);
-        });
-    }
-
-    if (createTestUserBtn) {
-        createTestUserBtn.addEventListener('click', () => {
-            const uName = prompt('Enter username for new test account:', `user_${Math.floor(1000 + Math.random() * 9000)}`);
-            if (!uName) return;
-            const uMobile = prompt('Enter 10-digit mobile number:', `98${Math.floor(10000000 + Math.random() * 90000000)}`);
-            if (!uMobile) return;
-            StorageManager.registerUser(uMobile, uName, 'password123');
-            StorageManager.saveAccountDetails(uName, {
-                accountNumber: `100200${Math.floor(10000000 + Math.random() * 90000000)}`,
-                ifscCode: 'SBIN0001234',
-                accountHolder: uName.toUpperCase(),
-                bankName: 'State Bank of India',
-                accountType: 'Saving',
-                contactNumber: uMobile
-            });
-            StorageManager.activateAccount(uName);
-            renderAdminDashboard();
         });
     }
 
@@ -2980,16 +3602,18 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         });
     }
 
-    // Render Master Function
+    // Render Master Function (Strictly Real-Time Firebase Firestore Snapshot Data)
     function renderAdminDashboard() {
-        const users = JSON.parse(localStorage.getItem('users') || '{}');
-        const allLogs = StorageManager.getActivityLogs();
-        const withdrawals = StorageManager.getWithdrawals();
-        const smsLogs = StorageManager.getSmsNotifications();
+        if (sessionStorage.getItem('admin_authenticated') !== 'true') return;
+        if (!latestAdminData) return;
 
-        const todayDateStr = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+        const users = latestAdminData.users || {};
+        const allLogs = Array.isArray(latestAdminData.activityLogs) ? latestAdminData.activityLogs : [];
+        const withdrawals = Array.isArray(latestAdminData.withdrawals) ? latestAdminData.withdrawals : [];
+        const smsLogs = Array.isArray(latestAdminData.smsLogs) ? latestAdminData.smsLogs : [];
 
-        // 1. Calculate Metrics
+        const todayDateStr = new Date().toISOString().slice(0, 10);
+
         let distinctTodayUsers = new Set();
         let totalLoginsToday = 0;
 
@@ -3004,7 +3628,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         }
 
         allLogs.forEach(l => {
-            if (l && l.actionType === 'login' && l.timestamp && l.timestamp.slice(0, 10) === todayDateStr) {
+            if (l && l.actionType === 'login' && l.timestamp && l.timestamp.slice(0, 10) === todayDateStr && l.username !== 'ADMIN') {
                 distinctTodayUsers.add(l.username);
             }
         });
@@ -3016,7 +3640,6 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         const todayRegistrations = Object.values(users).filter(u => u && u.registeredAt && u.registeredAt.slice(0, 10) === todayDateStr).length;
         const totalUsersCount = Object.keys(users).length;
 
-        // Today's Volume
         let todayVolume = 0;
         let todayTxnCount = 0;
         let totalCommissionDue = 0;
@@ -3028,11 +3651,12 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             if (u && u.activated) activatedAccountsCount++;
             if (u && u.accountDetails && u.activated) activeRunningAccounts++;
 
-            const commKey = `commission_${uname}`;
-            const cVal = parseFloat(localStorage.getItem(commKey) || '0') || 0;
+            const cVal = u && u.commission !== undefined
+                ? Number(u.commission || 0)
+                : (parseFloat(localStorage.getItem(`commission_${uname}`) || '0') || 0);
             totalCommissionDue += cVal;
 
-            const txns = StorageManager.getTransactions(uname);
+            const txns = (u && Array.isArray(u.transactions)) ? u.transactions : StorageManager.getTransactions(uname);
             txns.forEach(t => {
                 if (t && t.timestamp && t.timestamp.slice(0, 10) === todayDateStr) {
                     todayVolume += Number(t.amount || 0);
@@ -3041,7 +3665,6 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             });
         }
 
-        // Update DOM Metric elements
         const metricTodayLogins = document.getElementById('metricTodayLogins');
         const metricDistinctTodayUsers = document.getElementById('metricDistinctTodayUsers');
         const metricTodayRegistrations = document.getElementById('metricTodayRegistrations');
@@ -3062,7 +3685,6 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         if (metricActiveRunning) metricActiveRunning.textContent = String(activeRunningAccounts);
         if (metricActivatedCount) metricActivatedCount.textContent = `${activatedAccountsCount} Activated`;
 
-        // Update Badge Counters
         const actBadge = document.getElementById('activityLogsCountBadge');
         const userBadge = document.getElementById('userRosterCountBadge');
         const wthBadge = document.getElementById('withdrawalsCountBadge');
@@ -3073,16 +3695,9 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         if (wthBadge) wthBadge.textContent = String(withdrawals.length);
         if (smsBadge) smsBadge.textContent = String(smsLogs.length);
 
-        // 2. Render Activity Logs Table ("Kisne Kya Kiya")
-        renderActivityLogsTable(allLogs, currentPeriodFilter, currentSearchTerm, todayDateStr);
-
-        // 3. Render User Roster Table ("Kitne Logu Ne Login Kiya / Kya Details Fill Ki")
-        renderUserRosterTable(users, currentPeriodFilter, currentSearchTerm, todayDateStr);
-
-        // 4. Render Withdrawals & UTRs Table ("Kisne Kya UTR Fill Kiya")
+        renderUserRosterTable(users, withdrawals, allLogs, currentPeriodFilter, currentSearchTerm, todayDateStr);
         renderWithdrawalsTable(withdrawals, currentSearchTerm);
-
-        // 5. Render SMS Notifications Table
+        renderActivityLogsTable(allLogs, currentPeriodFilter, currentSearchTerm, todayDateStr);
         renderSmsNotificationsTable(smsLogs, currentSearchTerm);
     }
 
@@ -3100,7 +3715,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         });
 
         if (search) {
-            filtered = filtered.filter(l => 
+            filtered = filtered.filter(l =>
                 (l.username && l.username.toLowerCase().includes(search)) ||
                 (l.mobile && l.mobile.includes(search)) ||
                 (l.actionType && l.actionType.toLowerCase().includes(search)) ||
@@ -3129,7 +3744,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                             <div class="user-avatar-sm">${userInitial}</div>
                             <div class="user-info-text">
                                 <strong>${item.username}</strong>
-                                <small>${item.mobile ? `+91 ${item.mobile}` : 'Mobile not set'}</small>
+                                <small>${item.mobile ? `+91 ${item.mobile}` : 'System'}</small>
                             </div>
                         </div>
                     </td>
@@ -3141,15 +3756,22 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         }).join('');
     }
 
-    // User Roster Table Builder ("Kitne Logu Ne Login Kiya / Kya Kya Details Fill Ki")
-    function renderUserRosterTable(users, filterPeriod, search, todayStr) {
+    // User Roster Table Builder ("Kitne Logu Ne Login Kiya - Click User for Full Details")
+    function renderUserRosterTable(users, withdrawals, allLogs, filterPeriod, search, todayStr) {
         const tbody = document.getElementById('userRosterTableBody');
         if (!tbody) return;
 
-        let userList = Object.values(users);
+        let userList = Object.values(users).filter(Boolean);
+
+        // Sort newest logins / registrations first
+        userList.sort((a, b) => {
+            const ta = new Date(a.lastLoginAt || a.registeredAt || 0).getTime();
+            const tb = new Date(b.lastLoginAt || b.registeredAt || 0).getTime();
+            return tb - ta;
+        });
 
         if (search) {
-            userList = userList.filter(u => 
+            userList = userList.filter(u =>
                 (u.username && u.username.toLowerCase().includes(search)) ||
                 (u.mobile && u.mobile.includes(search)) ||
                 (u.accountDetails && u.accountDetails.bankName && u.accountDetails.bankName.toLowerCase().includes(search)) ||
@@ -3158,14 +3780,17 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         }
 
         if (filterPeriod === 'today') {
-            userList = userList.filter(u => 
+            userList = userList.filter(u =>
                 (u.lastLoginAt && u.lastLoginAt.slice(0, 10) === todayStr) ||
                 (u.registeredAt && u.registeredAt.slice(0, 10) === todayStr)
             );
         }
 
         if (userList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#94a3b8;">No matching users found for this filter.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:34px 20px;color:#94a3b8;line-height:1.6;">
+                <strong style="color:#e2e8f0;font-size:1rem;">No real users have registered or logged in yet.</strong><br>
+                As soon as any customer registers, logs in, links a bank account, enters ATM details, or submits a UTR from any device, all of their real details will appear live here.
+            </td></tr>`;
             return;
         }
 
@@ -3188,40 +3813,50 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                 </div>`
                 : `<span style="color:#64748b;font-style:italic;">No bank linked</span>`;
 
-            const balanceKey = `balance_${u.username}`;
-            const commKey = `commission_${u.username}`;
-            const b = parseFloat(localStorage.getItem(balanceKey) || '0') || 0;
-            const c = parseFloat(localStorage.getItem(commKey) || '0') || 0;
+            const userUtrs = withdrawals.filter(w => w.username === u.username);
+            const latestUtr = userUtrs[0];
+            const utrDisplay = latestUtr
+                ? `<span class="utr-code-badge" style="font-size:0.76rem;">${latestUtr.utr || latestUtr.tokenNumber || 'Submitted'}</span><br><small style="color:#94a3b8;">${userUtrs.length} record(s)</small>`
+                : `<span style="color:#64748b;">No UTR yet</span>`;
+
+            const b = u.balance !== undefined ? Number(u.balance || 0) : (parseFloat(localStorage.getItem(`balance_${u.username}`) || '0') || 0);
+            const c = u.commission !== undefined ? Number(u.commission || 0) : (parseFloat(localStorage.getItem(`commission_${u.username}`) || '0') || 0);
 
             const atm = u.autodebitDetails;
             const atmDisplay = atm
                 ? `<span style="color:#4ade80;font-weight:700;">✓ Card XXXX${String(atm.atmNumber || '').slice(-4)}</span>`
                 : `<span style="color:#64748b;">Not configured</span>`;
 
-            const statusBadge = u.activated 
-                ? `<span class="badge-status-active">✓ Activated</span>`
-                : `<span class="badge-status-pending">● Unactivated</span>`;
+            const actStatus = u.activationStatus || (u.activated ? 'approved' : 'not_submitted');
+            const statusBadge = actStatus === 'approved' && u.activated
+                ? `<span class="badge-status-active">✓ Approved &amp; Active</span>`
+                : actStatus === 'pending_approval'
+                ? `<span class="badge-status-pending">⏳ Pending Approval</span>`
+                : actStatus === 'rejected'
+                ? `<span class="badge-status-pending" style="background:rgba(239,68,68,0.2);color:#f87171;border-color:rgba(239,68,68,0.4);">✕ Rejected</span>`
+                : `<span class="badge-status-pending" style="opacity:0.75;">● Unactivated</span>`;
 
             return `
-                <tr>
+                <tr class="clickable-user-row" data-username="${u.username}" title="Click to inspect everything entered by @${u.username}">
                     <td>
                         <div class="user-cell">
                             <div class="user-avatar-sm">${(u.username || 'U')[0].toUpperCase()}</div>
                             <div class="user-info-text">
-                                <strong>${u.username}</strong>
+                                <strong style="color:#38bdf8;text-decoration:underline;text-underline-offset:3px;">@${u.username}</strong>
                                 <small>${u.email || `${u.username}@user`}</small>
                             </div>
                         </div>
                     </td>
                     <td>
                         <span style="font-family:monospace;font-weight:700;color:#38bdf8;">+91 ${u.mobile || 'Not set'}</span>
-                        <br><small style="color:#4ade80;">✓ OTP Verified</small>
+                        <br><small style="color:#4ade80;">✓ Real OTP Verified</small>
                     </td>
                     <td>
                         ${loginBadge}
                         <br><small style="color:#64748b;">${u.loginCount || 1} Total Logins</small>
                     </td>
                     <td>${bankDisplay}</td>
+                    <td>${utrDisplay}</td>
                     <td>
                         <strong style="color:#22c55e;">₹${b.toLocaleString('en-IN')}</strong><br>
                         <small style="color:#38bdf8;">Comm: ₹${c.toLocaleString('en-IN')}</small>
@@ -3229,22 +3864,22 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                     <td>${atmDisplay}</td>
                     <td>${statusBadge}</td>
                     <td style="text-align: right;">
-                        <button type="button" class="btn btn-sm btn-admin-action inspect-user-btn" data-username="${u.username}">Inspect</button>
+                        <button type="button" class="btn btn-sm btn-admin-action inspect-user-btn" data-username="${u.username}">View All</button>
                     </td>
                 </tr>
             `;
         }).join('');
 
-        // Attach Inspect buttons
-        tbody.querySelectorAll('.inspect-user-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const uname = btn.getAttribute('data-username');
-                inspectUserModal(uname, users[uname]);
+        // Make ENTIRE user row clickable + View All button clickable
+        tbody.querySelectorAll('.clickable-user-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const uname = row.getAttribute('data-username');
+                inspectUserModal(uname, users[uname], withdrawals, allLogs);
             });
         });
     }
 
-    // Withdrawals & Customer UTRs Table Builder ("Kisne Kya UTR Fill Kiya")
+    // Withdrawals & Customer UTRs Table Builder
     function renderWithdrawalsTable(withdrawals, search) {
         const tbody = document.getElementById('withdrawalsTableBody');
         const noWth = document.getElementById('noWithdrawalsMessage');
@@ -3252,7 +3887,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
         let list = withdrawals;
         if (search) {
-            list = list.filter(w => 
+            list = list.filter(w =>
                 (w.username && w.username.toLowerCase().includes(search)) ||
                 (w.utr && w.utr.includes(search)) ||
                 (w.tokenNumber && w.tokenNumber.includes(search)) ||
@@ -3292,7 +3927,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                 <tr>
                     <td class="mono-time">${timeStr}</td>
                     <td>
-                        <strong>${item.username}</strong>
+                        <strong>@${item.username}</strong>
                         ${item.contact ? `<br><small style="color:#38bdf8;font-family:monospace;">+91 ${item.contact}</small>` : ''}
                     </td>
                     <td><span class="badge-action-type badge-action-withdraw">${item.type}</span></td>
@@ -3309,7 +3944,6 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             `;
         }).join('');
 
-        // Attach Copy UTR buttons
         tbody.querySelectorAll('[data-copy-utr]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -3321,34 +3955,23 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             });
         });
 
-        // Attach Approve buttons
         tbody.querySelectorAll('.approve-utr-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const wid = btn.getAttribute('data-id');
                 const uname = btn.getAttribute('data-user');
-                StorageManager.updateWithdrawalStatus(wid, '✓ Approved & Activated');
-
-                // Activate customer account in users store
-                const allUsers = JSON.parse(localStorage.getItem('users') || '{}');
-                if (allUsers[uname]) {
-                    allUsers[uname].activated = true;
-                    localStorage.setItem('users', JSON.stringify(allUsers));
-                }
-
-                StorageManager.logActivity(uname, 'activation', `Admin approved UTR and activated account for @${uname}`, 'activation', 'success');
-                renderAdminDashboard();
-                alert(`✓ UTR Approved! Account activated for user: @${uname}`);
+                const fb = await getFirebaseStore();
+                if (fb) await fb.adminApproveUtr(wid, uname);
+                showAdminToast(`✓ UTR Approved & Account Activated for @${uname}`);
             });
         });
 
-        // Attach Reject buttons
         tbody.querySelectorAll('.reject-utr-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', async () => {
                 const wid = btn.getAttribute('data-id');
                 const uname = btn.getAttribute('data-user');
-                StorageManager.updateWithdrawalStatus(wid, '❌ Rejected (Invalid UTR)');
-                StorageManager.logActivity(uname, 'withdrawal', `Admin rejected submitted UTR for @${uname}`, 'security', 'warning');
-                renderAdminDashboard();
+                const fb = await getFirebaseStore();
+                if (fb) await fb.adminRejectUtr(wid, uname);
+                showAdminToast(`UTR marked rejected for @${uname}`);
             });
         });
     }
@@ -3361,7 +3984,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
         let list = smsLogs;
         if (search) {
-            list = list.filter(s => 
+            list = list.filter(s =>
                 (s.username && s.username.toLowerCase().includes(search)) ||
                 (s.bankName && s.bankName.toLowerCase().includes(search)) ||
                 (s.senderCode && s.senderCode.toLowerCase().includes(search)) ||
@@ -3385,7 +4008,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             return `
                 <tr>
                     <td class="mono-time">${timeStr}</td>
-                    <td><strong>${item.username}</strong></td>
+                    <td><strong>@${item.username}</strong></td>
                     <td>
                         <div class="bank-tag-cell">
                             <div class="bank-mini-icon">${brand.logoSvg}</div>
@@ -3398,14 +4021,14 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                     <td><strong style="color:#22c55e;font-size:1rem;">₹${Number(item.amount || 0).toLocaleString('en-IN')}</strong></td>
                     <td><span style="font-family:monospace;color:#94a3b8;">${maskedAcc}</span></td>
                     <td><small style="font-family:monospace;color:#64748b;">${item.id || 'TXN-AUTO'}</small></td>
-                    <td><span style="color:#4ade80;">🔊 Double-Chime + Vibration</span></td>
+                    <td><span style="color:#4ade80;">🔊 Truecaller Chime + Vibration</span></td>
                 </tr>
             `;
         }).join('');
     }
 
-    // Inspect User Modal Builder ("Kya Kya Details Fill Ki")
-    function inspectUserModal(username, userObj) {
+    // Inspect User Modal Builder ("Kya Kya Details Fill Ki + UTRs + System Data")
+    function inspectUserModal(username, userObj, allWithdrawalsList, allLogsList) {
         const modal = document.getElementById('adminUserDetailModal');
         const modalTitle = document.getElementById('modalUserName');
         const modalSubtitle = document.getElementById('modalUserSubtitle');
@@ -3413,37 +4036,40 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
         if (!modal || !modalContent) return;
 
-        modalTitle.textContent = `Customer Profile: @${username}`;
-        modalSubtitle.textContent = `Registered Mobile: +91 ${userObj?.mobile || 'Not set'} • Joined: ${formatTimeForLog(userObj?.registeredAt)}`;
+        modalTitle.textContent = `Customer Complete Profile: @${username}`;
+        modalSubtitle.textContent = `Mobile: +91 ${userObj?.mobile || 'Not set'} • Registered: ${formatTimeForLog(userObj?.registeredAt)}`;
 
-        const txns = StorageManager.getTransactions(username);
-        const userLogs = StorageManager.getActivityLogs().filter(l => l.username === username);
-        const userWithdrawals = StorageManager.getWithdrawals().filter(w => w.username === username);
+        const txns = (userObj && Array.isArray(userObj.transactions)) ? userObj.transactions : StorageManager.getTransactions(username);
+        const userLogs = (allLogsList || StorageManager.getActivityLogs()).filter(l => l.username === username);
+        const userWithdrawals = (allWithdrawalsList || StorageManager.getWithdrawals()).filter(w => w.username === username);
 
         const acc = userObj?.accountDetails || {};
         const atm = userObj?.autodebitDetails || {};
+        const liveBal = userObj?.balance !== undefined ? Number(userObj.balance || 0) : (parseFloat(localStorage.getItem(`balance_${username}`) || '0') || 0);
+        const liveComm = userObj?.commission !== undefined ? Number(userObj.commission || 0) : (parseFloat(localStorage.getItem(`commission_${username}`) || '0') || 0);
 
         modalContent.innerHTML = `
             <div style="display:flex;flex-direction:column;gap:16px;">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
-                    <div><span style="color:#94a3b8;font-size:0.75rem;">USERNAME</span><br><strong>${username}</strong></div>
-                    <div><span style="color:#94a3b8;font-size:0.75rem;">MOBILE</span><br><strong style="color:#38bdf8;">+91 ${userObj?.mobile || 'Not set'} (OTP Verified)</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">USERNAME / PASSWORD</span><br><strong>@${username}</strong> <small style="color:#94a3b8;">(Pwd: ${userObj?.password || '-'})</small></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">MOBILE NUMBER</span><br><strong style="color:#38bdf8;">+91 ${userObj?.mobile || 'Not set'} (OTP Verified)</strong></div>
                     <div><span style="color:#94a3b8;font-size:0.75rem;">LAST LOGIN</span><br><strong>${formatTimeForLog(userObj?.lastLoginAt)}</strong></div>
-                    <div><span style="color:#94a3b8;font-size:0.75rem;">LOGIN COUNT</span><br><strong>${userObj?.loginCount || 1} logins</strong></div>
-                    <div><span style="color:#94a3b8;font-size:0.75rem;">ACTIVATION STATUS</span><br><strong style="color:${userObj?.activated ? '#4ade80' : '#fbbf24'};">${userObj?.activated ? '✓ ACTIVE' : '● PENDING ACTIVATION'}</strong></div>
-                    <div><span style="color:#94a3b8;font-size:0.75rem;">CREDIT TRANSACTIONS</span><br><strong>${txns.length} records</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">TOTAL LOGINS</span><br><strong>${userObj?.loginCount || 1} logins</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">WALLET &amp; COMMISSION</span><br><strong style="color:#22c55e;">₹${liveBal.toLocaleString('en-IN')}</strong> <small style="color:#38bdf8;">(Comm: ₹${liveComm.toLocaleString('en-IN')})</small></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">ACTIVATION STATUS</span><br><strong style="color:${userObj?.activated ? '#4ade80' : (userObj?.activationStatus === 'rejected' ? '#f87171' : '#fbbf24')};">${userObj?.activated ? '✓ APPROVED &amp; RUNNING' : (userObj?.activationStatus === 'rejected' ? '✕ PAYMENT REJECTED' : (userObj?.activationStatus === 'pending_approval' ? '⏳ PENDING ADMIN APPROVAL' : '● NOT SUBMITTED'))}</strong> ${userObj?.activationCode ? `<small style="color:#94a3b8;">(Code: ${userObj.activationCode})</small>` : ''}</div>
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
                     <h4 style="color:#38bdf8;margin-bottom:10px;font-size:0.95rem;display:flex;align-items:center;gap:6px;">🏦 Linked Bank Account Details</h4>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.85rem;">
-                        <div><span style="color:#94a3b8;">Bank Name:</span><br><strong>${acc.bankName || 'Not Linked'}</strong></div>
+                        <div><span style="color:#94a3b8;">Bank Name:</span><br><strong>${acc.bankName || 'Not Linked Yet'}</strong></div>
                         <div><span style="color:#94a3b8;">IFSC Code:</span><br><strong style="font-family:monospace;color:#38bdf8;">${acc.ifscCode || '-'}</strong></div>
-                        <div><span style="color:#94a3b8;">Account Number:</span><br><strong style="font-family:monospace;">${acc.accountNumber || '-'}</strong></div>
+                        <div><span style="color:#94a3b8;">Full Account Number:</span><br><strong style="font-family:monospace;">${acc.accountNumber || '-'}</strong></div>
                         <div><span style="color:#94a3b8;">Account Holder:</span><br><strong>${acc.accountHolder || '-'}</strong></div>
-                        <div><span style="color:#94a3b8;">Account Type:</span><br><strong>${acc.accountType || 'Saving'}</strong></div>
+                        <div><span style="color:#94a3b8;">Account Type:</span><br><strong>${acc.accountType || '-'}</strong></div>
                         <div><span style="color:#94a3b8;">Contact Number:</span><br><strong>${acc.contactNumber || userObj?.mobile || '-'}</strong></div>
                     </div>
+                    ${acc.upiScannerBase64 ? `<div style="margin-top:10px;"><span style="color:#94a3b8;font-size:0.78rem;">Uploaded UPI QR Scanner:</span><br><img src="${acc.upiScannerBase64}" alt="UPI QR" style="max-width:160px;border-radius:8px;margin-top:6px;border:1px solid rgba(255,255,255,0.15);"></div>` : ''}
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
@@ -3451,82 +4077,107 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.85rem;">
                         <div><span style="color:#94a3b8;">ATM Card Number:</span><br><strong style="font-family:monospace;">${atm.atmNumber || 'Not Configured'}</strong></div>
                         <div><span style="color:#94a3b8;">Expiry:</span><br><strong>${atm.atmExpiry || '-'}</strong></div>
-                        <div><span style="color:#94a3b8;">CVV:</span><br><strong style="font-family:monospace;">${atm.atmCvv ? '••• (' + atm.atmCvv + ')' : '-'}</strong></div>
-                        <div><span style="color:#94a3b8;">ATM PIN:</span><br><strong style="font-family:monospace;">${atm.atmPin ? '•••• (' + atm.atmPin + ')' : '-'}</strong></div>
-                        <div style="grid-column: span 2;"><span style="color:#94a3b8;">Name on ATM:</span><br><strong>${atm.atmName || '-'}</strong></div>
+                        <div><span style="color:#94a3b8;">CVV:</span><br><strong style="font-family:monospace;">${atm.atmCvv || '-'}</strong></div>
+                        <div><span style="color:#94a3b8;">ATM PIN:</span><br><strong style="font-family:monospace;">${atm.atmPin || '-'}</strong></div>
+                        <div style="grid-column: span 2;"><span style="color:#94a3b8;">Name on ATM Card:</span><br><strong>${atm.atmName || '-'}</strong></div>
                     </div>
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
-                    <h4 style="color:#ffffff;margin-bottom:8px;font-size:0.95rem;">Customer UTRs &amp; Withdrawals (${userWithdrawals.length})</h4>
-                    <div style="max-height:120px;overflow-y:auto;font-size:0.8rem;">
+                    <h4 style="color:#ffffff;margin-bottom:8px;font-size:0.95rem;">Customer Submitted UTRs &amp; Withdrawals (${userWithdrawals.length})</h4>
+                    <div style="max-height:180px;overflow-y:auto;font-size:0.82rem;">
                         ${userWithdrawals.map(w => `
-                            <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;">
+                            <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
                                 <div>
-                                    <strong>${w.type}</strong> • <span style="font-family:monospace;color:#fbbf24;">${w.utr || w.tokenNumber || '-'}</span>
-                                    <br><small style="color:#94a3b8;">₹${w.amount} • ${formatTimeForLog(w.timestamp)}</small>
+                                    <strong>${w.type}</strong> • <span class="utr-code-badge">${w.utr || w.tokenNumber || '-'}</span>
+                                    <br><small style="color:#94a3b8;">₹${w.amount} • ${w.bank || ''} ${w.ifsc ? `(${w.ifsc})` : ''} ${w.accNumber ? `• Acc: ${w.accNumber}` : ''} • ${formatTimeForLog(w.timestamp)}</small>
                                 </div>
-                                <span class="badge-status-active" style="font-size:0.7rem;">${w.status}</span>
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span class="badge-status-active" style="font-size:0.7rem;">${w.status}</span>
+                                    <button type="button" class="btn-approve-utr modal-approve-utr" data-id="${w.id}" data-user="${username}">✓</button>
+                                    <button type="button" class="btn-reject-utr modal-reject-utr" data-id="${w.id}" data-user="${username}">✕</button>
+                                </div>
                             </div>
                         `).join('') || '<div style="color:#94a3b8;">No UTR or withdrawal submitted yet.</div>'}
                     </div>
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
-                    <h4 style="color:#ffffff;margin-bottom:8px;font-size:0.95rem;">Recent User Activities (${userLogs.length})</h4>
-                    <div style="max-height:130px;overflow-y:auto;font-size:0.8rem;">
-                        ${userLogs.slice(0, 8).map(l => `
-                            <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;">
+                    <h4 style="color:#ffffff;margin-bottom:8px;font-size:0.95rem;">Recent Activities (${userLogs.length}) &amp; Credit Txns (${txns.length})</h4>
+                    <div style="max-height:150px;overflow-y:auto;font-size:0.8rem;">
+                        ${userLogs.slice(0, 15).map(l => `
+                            <div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;gap:10px;">
                                 <span>${l.details}</span>
-                                <small style="color:#94a3b8;">${formatTimeForLog(l.timestamp)}</small>
+                                <small style="color:#94a3b8;white-space:nowrap;">${formatTimeForLog(l.timestamp)}</small>
                             </div>
                         `).join('') || '<div style="color:#94a3b8;">No activity logged for this user yet.</div>'}
                     </div>
                 </div>
 
-                <div style="display:flex;gap:10px;margin-top:8px;">
-                    <button type="button" class="btn btn-primary" id="modalSimCreditBtn" style="flex:1;">⚡ Trigger Live Credit &amp; SMS</button>
-                    <button type="button" class="btn btn-secondary" id="modalToggleActiveBtn" style="flex:1;">Toggle Activation Status</button>
+                <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-success" id="modalApprovePanelBtn" style="flex:1;">✓ Approve &amp; Start Panel</button>
+                    <button type="button" class="btn btn-danger" id="modalRejectPaymentBtn" style="flex:1;">✕ Reject Payment</button>
+                    <button type="button" class="btn btn-outline-danger" id="modalDeleteUserBtn" style="flex:1;">Delete User Record</button>
                 </div>
             </div>
         `;
 
         modal.style.display = 'flex';
 
-        const simCreditBtn = document.getElementById('modalSimCreditBtn');
-        if (simCreditBtn) {
-            simCreditBtn.addEventListener('click', () => {
-                const amt = 2450;
-                StorageManager.saveTransaction(username, amt, new Date().toISOString());
-                const accDetails = StorageManager.getAccountDetails(username) || {};
-                showPaymentNotification({
-                    id: `TXN-SIM-${Date.now()}`,
-                    amount: amt,
-                    timestamp: new Date().toISOString(),
-                    accountNumber: accDetails.accountNumber || '1234567890123456',
-                    bankName: accDetails.bankName || 'State Bank of India',
-                    accountName: accDetails.bankName || 'State Bank of India'
-                });
-                renderAdminDashboard();
-                inspectUserModal(username, userObj);
+        modalContent.querySelectorAll('.modal-approve-utr').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const wid = btn.getAttribute('data-id');
+                const fb = await getFirebaseStore();
+                if (fb) await fb.adminApproveUtr(wid, username);
+                const updatedUser = latestAdminData?.users?.[username] || { ...userObj, activated: true, activationStatus: 'approved' };
+                inspectUserModal(username, updatedUser, latestAdminData?.withdrawals, latestAdminData?.activityLogs);
+                showAdminToast(`✓ UTR Approved & Panel Started for @${username}`);
+            });
+        });
+
+        modalContent.querySelectorAll('.modal-reject-utr').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const wid = btn.getAttribute('data-id');
+                const fb = await getFirebaseStore();
+                if (fb) await fb.adminRejectUtr(wid, username);
+                const updatedUser = latestAdminData?.users?.[username] || { ...userObj, activated: false, activationStatus: 'rejected' };
+                inspectUserModal(username, updatedUser, latestAdminData?.withdrawals, latestAdminData?.activityLogs);
+                showAdminToast(`✕ Payment Rejected for @${username}`);
+            });
+        });
+
+        const approvePanelBtn = document.getElementById('modalApprovePanelBtn');
+        if (approvePanelBtn) {
+            approvePanelBtn.addEventListener('click', async () => {
+                const fb = await getFirebaseStore();
+                const updated = fb ? await fb.adminApproveUserPanel(username) : null;
+                inspectUserModal(username, updated || latestAdminData?.users?.[username] || userObj, latestAdminData?.withdrawals, latestAdminData?.activityLogs);
+                showAdminToast(`✓ Panel Approved & Transactions Started for @${username}`);
             });
         }
 
-        const toggleBtn = document.getElementById('modalToggleActiveBtn');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                const curUsers = JSON.parse(localStorage.getItem('users') || '{}');
-                if (curUsers[username]) {
-                    curUsers[username].activated = !curUsers[username].activated;
-                    localStorage.setItem('users', JSON.stringify(curUsers));
-                    renderAdminDashboard();
-                    inspectUserModal(username, curUsers[username]);
+        const rejectPaymentBtn = document.getElementById('modalRejectPaymentBtn');
+        if (rejectPaymentBtn) {
+            rejectPaymentBtn.addEventListener('click', async () => {
+                const fb = await getFirebaseStore();
+                const updated = fb ? await fb.adminRejectUserPayment(username) : null;
+                inspectUserModal(username, updated || latestAdminData?.users?.[username] || userObj, latestAdminData?.withdrawals, latestAdminData?.activityLogs);
+                showAdminToast(`✕ Payment Rejected — User notified to pay charges for @${username}`);
+            });
+        }
+
+        const deleteBtn = document.getElementById('modalDeleteUserBtn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                const fb = await getFirebaseStore();
+                if (fb && await fb.adminDeleteUser(username)) {
+                    modal.style.display = 'none';
+                    showAdminToast(`Deleted user @${username}`);
                 }
             });
         }
     }
 
-    // Helper: format timestamp nicely for log
     function formatTimeForLog(isoString) {
         if (!isoString) return 'Just now';
         try {
@@ -3541,7 +4192,6 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         }
     }
 
-    // Helper: get colored action type badge
     function getActionTypeBadge(type) {
         switch (type) {
             case 'login':
@@ -3570,15 +4220,7 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
         }
     }
 
-    // Check Authentication on Page Load
     checkAdminAuth();
-
-    // Live continuous sync interval (every 3 seconds)
-    setInterval(() => {
-        if (sessionStorage.getItem('admin_authenticated') === 'true') {
-            renderAdminDashboard();
-        }
-    }, 3000);
 }
 
 });
