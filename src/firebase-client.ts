@@ -564,9 +564,9 @@ const FirebaseStore = {
       mobileVerified: true,
       email: payload.email || `${cleanMobile}@accountfunds.in`,
       registeredAt: now,
-      lastLoginAt: now,
-      loginCount: 1,
-      loginHistory: [now],
+      lastLoginAt: '',
+      loginCount: 0,
+      loginHistory: [],
       accountDetails: null,
       autodebitDetails: null,
       activated: false,
@@ -582,11 +582,10 @@ const FirebaseStore = {
 
     try {
       await setDoc(doc(db, 'users', docId), newUser);
-      await writeActivityLog(uname, 'register', `New user registered with real OTP verified mobile +91 ${cleanMobile} (${newUser.otpProvider})`, 'registration', 'success', cleanMobile);
-      await writeActivityLog(uname, 'login', `User logged in after real mobile OTP verification`, 'auth', 'success', cleanMobile);
+      await writeActivityLog(uname, 'register', `New user registered with OTP verified mobile +91 ${cleanMobile} (${newUser.otpProvider})`, 'registration', 'success', cleanMobile);
       return {
         success: true,
-        message: 'Registration successful! Mobile number verified.',
+        message: 'Registration successful! Please login with your mobile number or username and password.',
         user: newUser,
       };
     } catch (err) {

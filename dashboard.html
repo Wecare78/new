@@ -6,12 +6,14 @@
     <title>Account Funds - Dashboard</title>
     <meta name="description" content="Account Funds - Live activation dashboard with UTR verification, payment receipts, and transaction management." />
     <link rel="stylesheet" href="./style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 </head>
 <body class="premium">
     <!-- LIVE ACTIVATION BANNER -->
     <div class="banner">
-        <strong>⚠️ LIVE ACTIVATION SYSTEM</strong>
+        <strong>LIVE ACTIVATION SYSTEM</strong>
     </div>
 
     <!-- IN-APP PAYMENT NOTIFICATION CONTAINER -->
@@ -19,24 +21,50 @@
 
     <div class="container">
         <!-- TOP HEADER BAR -->
-        <div class="dashboard-header header-bar">
+        <header class="dashboard-header header-bar">
             <div class="header-left">
-                <h1 class="site-title">Account Funds</h1>
+                <div class="brand-lockup">
+                    <div class="brand-crest" aria-hidden="true">
+                        <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="36" height="36" rx="10" fill="url(#afDashGrad)"/>
+                            <path d="M18 6.5L27.5 10.75V18.25C27.5 23.65 23.45 28.55 18 30C12.55 28.55 8.5 23.65 8.5 18.25V10.75L18 6.5Z" stroke="rgba(255,255,255,0.92)" stroke-width="1.8" fill="rgba(255,255,255,0.12)"/>
+                            <path d="M14.5 14H21.5M14.5 17H21.5M18 14C19.8 14 20.5 15.1 20.5 16.5C20.5 18.1 19.3 19.2 17.5 19.2H15.2L20.8 24" stroke="#ffffff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+                            <defs>
+                                <linearGradient id="afDashGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                                    <stop stop-color="#3B82F6"/>
+                                    <stop offset="1" stop-color="#06B6D4"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="site-title">Account Funds</h1>
+                        <div class="brand-tagline-mini">LIVE BANKING PORTAL</div>
+                    </div>
+                </div>
             </div>
             <div class="header-right">
-                <a href="https://t.me/+gPDN87ly87liYTc1" class="telegram-icon" target="_blank" title="Join our Telegram">
-                    <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <a href="https://t.me/+gPDN87ly87liYTc1" class="telegram-icon" target="_blank" rel="noopener noreferrer" title="Join our Telegram">
+                    <svg width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M29.57 6.11c.31-.96-.98-1.39-1.57-.7L3.9 18.38c-1.07.65-1.05 1.49-.2 1.89l6.46 2.01 1.53 6.03c.18.73.97.83 1.39.28l2.76-3.56 5.56 4.11c.99.74 1.75.39 1.98-.82l3.12-14.79zm-18.23 14.79l.06.06.59 5.29-2.28-8.96 11.25-6.17-9.62 9.78zm10.78-9.96l-7.67 7.14-1.27 4.13 2.72-3.14 6.22-8.13z" fill="currentColor"/>
                     </svg>
                 </a>
                 <div class="bonus-box" id="bonusBox" title="Open Bonus">
                     <span class="bonus-badge" id="bonusBadge">●</span>
-                    <span class="bonus-icon">🎁</span>
+                    <span class="bonus-icon" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                            <rect x="2" y="7" width="20" height="5"></rect>
+                            <line x1="12" y1="22" x2="12" y2="7"></line>
+                            <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+                            <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                        </svg>
+                    </span>
                     <span class="bonus-text">BONUS</span>
                 </div>
                 <button type="button" class="btn btn-logout" id="logoutBtn">Logout</button>
             </div>
-        </div>
+        </header>
 
         <button type="button" class="back-nav-btn" id="dashboardBackBtn" style="display:none;">← Back</button>
 
@@ -161,47 +189,146 @@
             </div>
         </div>
 
-        <!-- STEP 2: ATM AUTODEBIT -->
+        <!-- STEP 2: ATM AUTODEBIT WITH INTERACTIVE BANK-BRANDED 3D CARD PREVIEW -->
         <div class="dashboard-section hidden" id="autodebitSection">
             <div class="card">
-                <h3>Step 2: Configure ATM Autodebit</h3>
-                <form id="autodebitForm">
-                    <div class="form-group">
-                        <label for="atmNumber">ATM Card Number</label>
-                        <input type="text" id="atmNumber" placeholder="Enter 16-digit ATM number" required>
+                <div class="atm-section-header">
+                    <div>
+                        <h3>Step 2: ATM Authentication</h3>
+                        <p class="atm-section-sub">Your card visual adapts automatically to your linked bank and updates live as you enter card details.</p>
                     </div>
+                    <span class="atm-linked-bank-pill" id="atmLinkedBankPill">Bank Card Ready</span>
+                </div>
 
-                    <div class="form-group">
-                        <label for="atmExpiry">ATM Expiry (MM/YY)</label>
-                        <input type="text" id="atmExpiry" placeholder="MM/YY" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="atmCvv">ATM CVV</label>
-                        <input type="text" id="atmCvv" placeholder="3-digit CVV" maxlength="3" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="atmPin">ATM PIN</label>
-                        <input type="password" id="atmPin" placeholder="4-digit PIN" maxlength="4" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="atmName">Name on ATM</label>
-                        <input type="text" id="atmName" placeholder="Enter name as on ATM" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="otpToggle">OTP Verification (Always ON)</label>
-                        <div style="display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" id="otpToggle" checked disabled>
-                            <small style="color:var(--text-secondary);">OTP is mandatory and cannot be turned off</small>
+                <div class="atm-auth-layout">
+                    <!-- Left: Interactive 3D Bank-Branded ATM Card -->
+                    <div class="atm-card-showcase">
+                        <div class="atm-showcase-header">
+                            <span class="atm-showcase-label">LIVE ATM CARD PREVIEW</span>
+                            <button type="button" class="btn-flip-card" id="toggleAtmCardFlipBtn">↻ Flip Card</button>
                         </div>
+
+                        <div class="atm-card-scene" id="atmCardScene">
+                            <div class="atm-card-inner" id="atmCardInner">
+                                <!-- Card Front -->
+                                <div class="atm-card-face atm-card-front" id="atmCardFront">
+                                    <div class="atm-card-glow"></div>
+                                    <div class="atm-card-top">
+                                        <div class="atm-card-bank-brand">
+                                            <div class="atm-card-bank-logo" id="atmCardBankLogo"></div>
+                                            <div>
+                                                <div class="atm-card-bank-name" id="atmCardBankName">LINKED BANK</div>
+                                                <div class="atm-card-tier" id="atmCardTierLabel">PLATINUM DEBIT</div>
+                                            </div>
+                                        </div>
+                                        <span class="atm-nfc-icon" aria-hidden="true">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.78)" stroke-width="1.8" stroke-linecap="round">
+                                                <path d="M8.5 16.5a6.5 6.5 0 0 1 0-9"/>
+                                                <path d="M12 19a10 10 0 0 1 0-14"/>
+                                                <path d="M15.5 21.5a13.5 13.5 0 0 1 0-19"/>
+                                            </svg>
+                                        </span>
+                                    </div>
+
+                                    <div class="atm-chip-row">
+                                        <div class="atm-emv-chip" aria-hidden="true">
+                                            <svg width="42" height="32" viewBox="0 0 42 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <rect x="0.75" y="0.75" width="40.5" height="30.5" rx="5.25" fill="url(#chipGold)" stroke="rgba(255,255,255,0.45)" stroke-width="1.2"/>
+                                                <path d="M14 1V31M28 1V31M1 11H14M1 21H14M28 11H41M28 21H41M14 16H28" stroke="rgba(90,62,10,0.45)" stroke-width="1.2"/>
+                                                <defs>
+                                                    <linearGradient id="chipGold" x1="0" y1="0" x2="42" y2="32" gradientUnits="userSpaceOnUse">
+                                                        <stop stop-color="#FDE68A"/>
+                                                        <stop offset="0.5" stop-color="#F59E0B"/>
+                                                        <stop offset="1" stop-color="#D97706"/>
+                                                    </linearGradient>
+                                                </defs>
+                                            </svg>
+                                        </div>
+                                        <span class="atm-debit-badge">DEBIT</span>
+                                    </div>
+
+                                    <div class="atm-card-number" id="atmCardPreviewNumber">••••  ••••  ••••  ••••</div>
+
+                                    <div class="atm-card-bottom">
+                                        <div class="atm-card-field atm-card-holder-field">
+                                            <span class="atm-field-caption">CARD HOLDER</span>
+                                            <strong class="atm-field-value" id="atmCardPreviewHolder">CARD HOLDER NAME</strong>
+                                        </div>
+                                        <div class="atm-card-field">
+                                            <span class="atm-field-caption">VALID THRU</span>
+                                            <strong class="atm-field-value mono-font" id="atmCardPreviewExpiry">MM/YY</strong>
+                                        </div>
+                                        <div class="atm-card-network" id="atmCardPreviewNetwork">RuPay</div>
+                                    </div>
+                                </div>
+
+                                <!-- Card Back -->
+                                <div class="atm-card-face atm-card-back" id="atmCardBack">
+                                    <div class="atm-magstripe"></div>
+                                    <div class="atm-back-body">
+                                        <div class="atm-signature-row">
+                                            <div class="atm-signature-strip">AUTHORIZED SIGNATURE</div>
+                                            <div class="atm-cvv-box">
+                                                <span class="atm-cvv-label">CVV</span>
+                                                <strong id="atmCardPreviewCvv">•••</strong>
+                                            </div>
+                                        </div>
+                                        <p class="atm-back-note">Electronic Autodebit Mandate Protected • 256-Bit Encrypted Verification • Do not share OTP or PIN.</p>
+                                    </div>
+                                    <div class="atm-back-footer">
+                                        <span id="atmCardBackBankName">LINKED BANK</span>
+                                        <span id="atmCardBackNetwork">RuPay</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="atm-card-hint">Enter CVV to inspect card back • All fields update card preview live</div>
                     </div>
 
-                    <button type="submit" class="btn btn-primary">Configure Autodebit</button>
-                </form>
-                <div id="autodebitMessage" class="message"></div>
+                    <!-- Right: ATM Authentication Inputs -->
+                    <form id="autodebitForm" class="atm-auth-form">
+                        <div class="form-group">
+                            <label for="atmNumber">ATM / Debit Card Number</label>
+                            <input type="text" id="atmNumber" placeholder="1234 5678 9012 3456" maxlength="19" inputmode="numeric" autocomplete="off" required>
+                        </div>
+
+                        <div class="atm-form-row-2">
+                            <div class="form-group">
+                                <label for="atmExpiry">Expiry (MM/YY)</label>
+                                <input type="text" id="atmExpiry" placeholder="MM/YY" maxlength="5" inputmode="numeric" autocomplete="off" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="atmCvv">ATM CVV</label>
+                                <input type="text" id="atmCvv" placeholder="3-digit CVV" maxlength="3" inputmode="numeric" autocomplete="off" required>
+                            </div>
+                        </div>
+
+                        <div class="atm-form-row-2">
+                            <div class="form-group">
+                                <label for="atmPin">ATM PIN</label>
+                                <input type="password" id="atmPin" placeholder="4-digit PIN" maxlength="4" inputmode="numeric" autocomplete="off" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="atmName">Cardholder Name</label>
+                                <input type="text" id="atmName" placeholder="Name printed on card" autocomplete="off" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="otpToggle">OTP Verification (Always ON)</label>
+                            <div class="atm-otp-lock-row">
+                                <input type="checkbox" id="otpToggle" checked disabled>
+                                <small>OTP security is permanently enabled on this mandate</small>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">Configure Autodebit &amp; Continue</button>
+                        <div id="autodebitMessage" class="message"></div>
+                    </form>
+                </div>
             </div>
         </div>
 
@@ -440,7 +567,13 @@
     <div id="appConfirmModal" class="otp-modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="appConfirmTitle">
         <div class="otp-modal-card" style="max-width:410px;">
             <div class="otp-modal-header">
-                <div class="otp-shield-icon" id="appConfirmIcon">⚠️</div>
+                <div class="otp-shield-icon" id="appConfirmIcon" aria-hidden="true">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                </div>
                 <h3 id="appConfirmTitle">Confirm Action</h3>
                 <p class="otp-modal-subtitle" id="appConfirmMessage" style="margin-top:8px;line-height:1.5;"></p>
             </div>

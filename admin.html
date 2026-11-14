@@ -6,7 +6,9 @@
     <title>Account Funds - Admin & Backend Control</title>
     <meta name="description" content="Account Funds Backend Management - Real-time User Activity, Today's Logins, Bank Accounts, and Audit Trail." />
     <link rel="stylesheet" href="./style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
     <!-- Top Server Status Banner -->
@@ -17,14 +19,26 @@
             <span class="banner-divider">•</span>
             <span id="adminLiveClock">--:--:--</span>
             <span class="banner-divider">•</span>
-            <span class="sync-status">🟢 Live Cross-Device Sync Active</span>
+            <span class="sync-status">Live Cross-Device Sync Active</span>
         </div>
     </div>
 
     <!-- SECURE ADMIN GATEKEEPER LOGIN SCREEN (RESTRICTED ACCESS - NO ID/PASS SHOWN) -->
     <div id="adminGatekeeper" class="admin-gatekeeper-wrap">
         <div class="admin-gatekeeper-card">
-            <div class="admin-gatekeeper-shield">🛡️</div>
+            <div class="admin-gatekeeper-shield" aria-hidden="true">
+                <svg width="38" height="38" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="36" height="36" rx="10" fill="url(#afAdminGate)"/>
+                    <path d="M18 6.5L27.5 10.75V18.25C27.5 23.65 23.45 28.55 18 30C12.55 28.55 8.5 23.65 8.5 18.25V10.75L18 6.5Z" stroke="#ffffff" stroke-width="1.8" fill="rgba(255,255,255,0.12)"/>
+                    <path d="M14.5 18L17 20.5L21.5 15.5" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <defs>
+                        <linearGradient id="afAdminGate" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#3B82F6"/>
+                            <stop offset="1" stop-color="#6366F1"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
             <h2 class="admin-gatekeeper-title">ADMIN ACCESS CONTROL</h2>
             <p class="admin-gatekeeper-subtitle">Restricted admin area. Please enter your authorized Admin ID and Password to unlock the control portal.</p>
 
@@ -62,7 +76,12 @@
         <!-- ADMIN NAVBAR -->
         <header class="admin-header">
             <div class="admin-brand">
-                <div class="admin-logo-mark">⚡</div>
+                <div class="admin-logo-mark" aria-hidden="true">
+                    <svg width="26" height="26" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 4L30 9.5V18.5C30 25.3 24.8 31.3 18 33C11.2 31.3 6 25.3 6 18.5V9.5L18 4Z" stroke="#ffffff" stroke-width="2" fill="rgba(255,255,255,0.14)"/>
+                        <path d="M13.5 14H22.5M13.5 17.5H22.5M18 14C20 14 21 15.2 21 16.8C21 18.6 19.6 19.8 17.6 19.8H14.5L21 25" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
                 <div>
                     <h1 class="admin-title">Account Funds <span class="badge-role">ADMIN BACKEND</span></h1>
                     <p class="admin-subtitle">Live User Activity Monitor • Today's Logins • Transaction &amp; Withdrawal Engine</p>
@@ -71,9 +90,17 @@
 
             <div class="admin-header-actions">
                 <div class="admin-auth-badge" id="adminAuthBadge">
-                    <span>🛡️</span>
+                    <span aria-hidden="true">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            <path d="M9 12l2 2 4-4"/>
+                        </svg>
+                    </span>
                     <span id="adminSessionUser">ADMIN</span>
                 </div>
+                <button type="button" class="btn btn-admin-action btn-push-toggle" id="adminPushNotifyBtn" title="Enable instant browser push notifications for new registrations and payments">
+                    <span id="adminPushNotifyLabel">🔔 Enable Alerts</span>
+                </button>
                 <button type="button" class="btn btn-admin-action" id="adminExportJsonBtn" title="Export complete real database and activity logs">
                     <span>📥 Export JSON</span>
                 </button>

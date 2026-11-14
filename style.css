@@ -25,7 +25,8 @@
     --glass-border: rgba(255, 255, 255, 0.09);
     --card-blur: 18px;
     --transition: 180ms ease;
-    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 html {
@@ -35,6 +36,7 @@ html {
 
 body {
     font-family: var(--font-family);
+    font-variant-numeric: tabular-nums;
     min-height: 100dvh;
     padding: 76px 16px 32px;
     overflow-x: hidden;
@@ -4140,6 +4142,847 @@ body::before {
     .receipt-fee-box {
         background: #f8fafc !important;
         border-color: #cbd5e1 !important;
+    }
+
+    .official-receipt-card {
+        background: #ffffff !important;
+        color: #0f172a !important;
+        border: 2px solid #0284c7 !important;
+        box-shadow: none !important;
+    }
+
+    .official-receipt-actions {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   BRAND TOPBAR, CREST LOGOS & AUTH UPGRADES
+   ============================================ */
+
+.auth-container {
+    max-width: 680px;
+}
+
+.auth-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(17, 28, 44, 0.88), rgba(10, 17, 30, 0.78));
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.brand-crest {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35);
+}
+
+.brand-wordmark {
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #ffffff;
+    line-height: 1.15;
+}
+
+.brand-tagline-mini {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #38bdf8;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 2px;
+}
+
+.telegram-pill-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    color: #7dd3fc;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: var(--transition);
+}
+
+.telegram-pill-link:hover {
+    background: rgba(56, 189, 248, 0.22);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+.welcome-eyebrow {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    margin-bottom: 10px;
+}
+
+.post-register-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    border-radius: 12px;
+    background: rgba(34, 197, 94, 0.11);
+    border: 1px solid rgba(34, 197, 94, 0.38);
+    color: #dcfce7;
+}
+
+.post-reg-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #22c55e;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.post-register-notice strong {
+    display: block;
+    font-size: 0.9rem;
+    color: #4ade80;
+    margin-bottom: 2px;
+}
+
+.post-register-notice p {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    margin: 0;
+    line-height: 1.45;
+}
+
+/* ============================================
+   8-15s REALISTIC OTP DISPATCH PROGRESS UI
+   ============================================ */
+
+.otp-delivery-pending {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: rgba(30, 41, 59, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.otp-pending-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.otp-pending-spinner {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(56, 189, 248, 0.25);
+    border-top-color: #38bdf8;
+    animation: otpSpin 0.85s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes otpSpin {
+    to { transform: rotate(360deg); }
+}
+
+.otp-pending-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.otp-pending-text strong {
+    font-size: 0.85rem;
+    color: #f8fafc;
+}
+
+.otp-pending-text span {
+    font-size: 0.76rem;
+    color: #38bdf8;
+    font-weight: 600;
+}
+
+.otp-progress-track {
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.16);
+    overflow: hidden;
+}
+
+.otp-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #3b82f6, #06b6d4, #22c55e);
+    transition: width 0.24s ease;
+}
+
+/* ============================================
+   INTERACTIVE 3D BANK-BRANDED ATM CARD (STEP 2)
+   ============================================ */
+
+.atm-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.atm-section-header h3 {
+    margin-bottom: 6px;
+}
+
+.atm-section-sub {
+    font-size: 0.84rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    margin: 0;
+}
+
+.atm-linked-bank-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.atm-auth-layout {
+    display: grid;
+    grid-template-columns: minmax(290px, 380px) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.atm-card-showcase {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.atm-showcase-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.atm-showcase-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: #94a3b8;
+}
+
+.btn-flip-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    color: #e2e8f0;
+    padding: 5px 11px;
+    border-radius: 8px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-flip-card:hover {
+    border-color: #38bdf8;
+    color: #ffffff;
+}
+
+.atm-card-scene {
+    width: 100%;
+    perspective: 1100px;
+}
+
+.atm-card-inner {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1.586 / 1;
+    min-height: 205px;
+    transform-style: preserve-3d;
+    transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.atm-card-inner.is-flipped {
+    transform: rotateY(180deg);
+}
+
+.atm-card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    padding: 18px 20px;
+    color: #ffffff;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0b3a75 0%, #1d64b8 55%, #0ea5e9 100%);
+}
+
+.atm-card-glow {
+    position: absolute;
+    top: -40%;
+    right: -25%;
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.22), transparent 68%);
+    pointer-events: none;
+}
+
+.atm-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.atm-card-bank-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.atm-card-bank-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.92);
+    padding: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.atm-card-bank-logo svg {
+    width: 100%;
+    height: 100%;
+}
+
+.atm-card-bank-name {
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 195px;
+}
+
+.atm-card-tier {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.78);
+    margin-top: 2px;
+}
+
+.atm-chip-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+}
+
+.atm-debit-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.atm-card-number {
+    font-family: var(--font-mono);
+    font-size: clamp(1rem, 2.2vw, 1.24rem);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    position: relative;
+    z-index: 1;
+    white-space: nowrap;
+}
+
+.atm-card-bottom {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.atm-card-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.atm-card-holder-field {
+    flex: 1;
+}
+
+.atm-field-caption {
+    font-size: 0.56rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.atm-field-value {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.atm-card-network {
+    font-size: 0.92rem;
+    font-weight: 800;
+    font-style: italic;
+    letter-spacing: 0.04em;
+    color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    flex-shrink: 0;
+}
+
+.atm-card-back {
+    transform: rotateY(180deg);
+    padding: 18px 0;
+}
+
+.atm-magstripe {
+    width: 100%;
+    height: 40px;
+    background: #090d16;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.atm-back-body {
+    padding: 0 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.atm-signature-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.atm-signature-strip {
+    flex: 1;
+    height: 36px;
+    border-radius: 6px;
+    background: repeating-linear-gradient(
+        -45deg,
+        #e2e8f0,
+        #e2e8f0 6px,
+        #cbd5e1 6px,
+        #cbd5e1 12px
+    );
+    color: #334155;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+}
+
+.atm-cvv-box {
+    background: #ffffff;
+    color: #0f172a;
+    border-radius: 6px;
+    padding: 4px 10px;
+    min-width: 62px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+.atm-cvv-label {
+    font-size: 0.52rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: #475569;
+}
+
+.atm-cvv-box strong {
+    font-family: var(--font-mono);
+    font-size: 0.92rem;
+    font-weight: 800;
+}
+
+.atm-back-note {
+    font-size: 0.66rem;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.4;
+    margin: 0;
+}
+
+.atm-back-footer {
+    padding: 0 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.atm-card-hint {
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.atm-auth-form {
+    min-width: 0;
+}
+
+.atm-form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.atm-otp-lock-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.atm-otp-lock-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    min-height: auto;
+    accent-color: #22c55e;
+    flex-shrink: 0;
+}
+
+.atm-otp-lock-row small {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 0.8rem;
+}
+
+/* ============================================
+   OFFICIAL CLEARING RECEIPT (ZERO 199 MENTION)
+   ============================================ */
+
+.official-receipt-wrap {
+    width: 100%;
+    animation: fadeIn 0.35s ease-out;
+}
+
+.official-receipt-card {
+    position: relative;
+    background: linear-gradient(160deg, #0b1324 0%, #0f1b33 55%, #0a1222 100%);
+    border: 1px solid rgba(56, 189, 248, 0.38);
+    border-radius: 18px;
+    padding: 26px 22px;
+    box-shadow: 0 24px 55px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.official-receipt-watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-18deg);
+    font-size: clamp(1.8rem, 5vw, 3rem);
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    color: rgba(56, 189, 248, 0.04);
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+}
+
+.official-receipt-head {
+    text-align: center;
+    margin-bottom: 18px;
+    position: relative;
+    z-index: 1;
+}
+
+.official-seal-crest {
+    display: inline-flex;
+    margin-bottom: 8px;
+}
+
+.official-badge-pill {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(34, 197, 94, 0.14);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+    color: #4ade80;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+}
+
+.official-receipt-head h4 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 4px 0;
+}
+
+.official-receipt-sub {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.official-txnid-hero {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    border-radius: 12px;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px dashed rgba(56, 189, 248, 0.42);
+    text-align: center;
+}
+
+.official-txnid-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: #7dd3fc;
+}
+
+.official-txnid-value {
+    font-size: clamp(1.05rem, 2.8vw, 1.35rem);
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.06em;
+    word-break: break-all;
+}
+
+.official-txnid-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: var(--font-mono);
+}
+
+.official-receipt-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 14px;
+    padding: 14px;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.official-kv {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+    min-width: 0;
+}
+
+.official-kv span {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.official-kv strong {
+    font-size: 0.84rem;
+    color: #f8fafc;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.official-receipt-footer-note {
+    position: relative;
+    z-index: 1;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.78rem;
+    color: #e2e8f0;
+}
+
+.official-receipt-footer-note small {
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
+
+.official-receipt-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.official-receipt-actions .btn {
+    flex: 1 1 160px;
+}
+
+/* ============================================
+   ADMIN PUSH ALERT TOGGLE & RESPONSIVE GRIDS
+   ============================================ */
+
+.btn-push-toggle.is-active {
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(34, 197, 94, 0.45);
+    color: #4ade80;
+}
+
+.admin-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.admin-modal-span2 {
+    grid-column: span 2;
+}
+
+@media (max-width: 860px) {
+    .atm-auth-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .atm-card-showcase {
+        max-width: 400px;
+        width: 100%;
+        margin: 0 auto;
+    }
+
+    .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    .admin-header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 600px) {
+    .auth-topbar {
+        padding: 10px 12px;
+    }
+
+    .brand-wordmark {
+        font-size: 0.9rem;
+    }
+
+    .brand-tagline-mini {
+        font-size: 0.62rem;
+    }
+
+    .atm-form-row-2,
+    .official-receipt-grid,
+    .admin-modal-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-modal-span2 {
+        grid-column: span 1;
+    }
+
+    .atm-card-face {
+        padding: 15px 16px;
+    }
+
+    .atm-card-number {
+        font-size: 0.96rem;
+        letter-spacing: 0.08em;
     }
 }
 
